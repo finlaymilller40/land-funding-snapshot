@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Land Funding Snapshot
 
-## Getting Started
+A web app where a landowner in England draws or uploads their land and gets a
+plain-English summary of which nature funding schemes it may qualify for
+(starting with the England Woodland Creation Offer), how much it could earn,
+and what to do next.
 
-First, run the development server:
+**Principle:** the database and code decide eligibility and money; AI only
+explains the results.
+
+> Portfolio prototype. Not financial or legal advice.
+
+## Status
+
+Phase 0: empty pipeline. The home page reads one test row from Supabase to
+prove Next.js → Supabase → Vercel works end to end.
+
+## Stack
+
+- Next.js (TypeScript, App Router, Tailwind CSS) on Vercel
+- Supabase: Postgres + PostGIS, Auth, row-level security
+- Supabase CLI (npm dev dependency) with Docker for local development
+
+## Run locally
+
+Needs Node.js 20+ and Docker Desktop running.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx supabase start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Create `.env.local` using the `API_URL` and `ANON_KEY` values printed by
+`npx supabase status`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<local anon key>
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Then `npm run dev` and open http://localhost:3000.
 
-## Learn More
+Never put the service role key in `.env.local` or any front-end code.
 
-To learn more about Next.js, take a look at the following resources:
+## Database changes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Migrations live in `supabase/migrations/`. Create one with
+`npx supabase migration new <name>`, apply it locally with
+`npx supabase db reset`, and push it to the hosted project with
+`npx supabase db push`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Decisions
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [DECISIONS.md](DECISIONS.md).
