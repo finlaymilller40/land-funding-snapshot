@@ -42,3 +42,6 @@ next-env.d.ts
 
 # downloaded open data (never commit)
 /data/
+
+# copied from node_modules at dev/build time
+/public/vendor/

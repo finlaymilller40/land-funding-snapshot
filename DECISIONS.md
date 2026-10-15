@@ -366,3 +366,123 @@ records the date, what was decided, why, and the alternatives considered.
   `layers` are unreachable; bad input returns HTTP 400 with a clear message.
 - All four migrations apply cleanly to an empty database, followed by a full
   reload of the layers.
+
+## Phase 3: website front end
+
+### D29. Libraries
+- **Date:** 2026-10-16
+- **What:**
+  - MapLibre GL 6.14 for the map.
+  - Terra Draw 1.37 with its MapLibre adapter for drawing and editing fields.
+  - `@turf/area` and `@turf/difference` for live areas and the outside-region
+    check.
+  - postcodes.io for postcode search.
+  - Tailwind for styling, and the Supabase client for `rpc()` calls with the
+    anon key.
+  - No component library, state library, AI, accounts or saving.
+- **Why:** These were the agreed defaults. Terra Draw is built for MapLibre,
+  whereas Mapbox GL Draw needs workarounds.
+- **Alternatives:** Mapbox GL Draw.
+
+### D30. Basemap with an optional aerial photo
+- **Date:** 2026-10-16
+- **What:** The OpenFreeMap "Positron" style (no key) is the default. An
+  "Aerial photo" checkbox switches on Esri World Imagery, with attribution.
+- **Why:** Farmers trace field edges far more easily on aerial imagery. Esri's
+  terms allow non-commercial and prototype use; a commercial product would
+  need an Esri account.
+- **Alternatives:** Street map only; Sentinel-2 imagery (open, but 10 m pixels
+  are blurry at field scale).
+
+### D31. Region outline and result shapes from the database
+- **Date:** 2026-10-16
+- **What:** Migration `20261015232311` adds two things:
+  - `public.region_outline()`: a simplified (10 m) outline of loaded regions,
+    66 KB.
+  - Shapes in `screen_site()`'s result: per block, the eligible area and each
+    removed area as 1 m-simplified lon/lat GeoJSON.
+
+  Both are `SECURITY DEFINER`, executable by anon. Simplification tolerances
+  are stored in `rules.settings`. The tests check that the returned shapes'
+  areas match the reported hectares (within 0.02 ha).
+- **Why:** The browser must never read layers. Result shapes are clipped to
+  the user's own fields, so they reveal nothing beyond land the user drew.
+- **Alternatives:** A static outline file committed to the repo; numbers only,
+  with no results map.
+
+### D32. One page, three steps, held in memory
+- **Date:** 2026-10-16
+- **What:** `/check` holds the map, question and results steps in React state.
+  The browser's back and forward buttons move between steps. The map step
+  stays mounted (hidden) so drawn fields survive. Refreshing starts over.
+- **Why:** Simplest option with no saving yet.
+- **Alternatives:** A URL per step with session storage.
+
+### D33. Look and feel
+- **Date:** 2026-10-16
+- **What:**
+  - The device's system font.
+  - Muted earthy tokens in `globals.css`. Text contrast: ink 14.5:1, moss
+    9.0:1, muted 6.0:1, clay text 6.0:1. Sage and clay are used only as fills.
+  - Light theme only, like gov.uk.
+  - Fields are outlined in ochre so they stay visible on the aerial photo.
+  - A focus ring (black outline with a yellow halo) on everything
+    keyboard-reachable; headings focused by the page don't show it.
+  - Tap targets are at least 44 px. Step headings and errors receive focus so
+    screen readers announce them.
+- **Why:** Calm, plain and accessible, at gov.uk-level clarity.
+
+### D34. Honest money display
+- **Date:** 2026-10-16
+- **What:**
+  - Headline figures are rounded to the nearest £100 and labelled "about".
+    Payment cards show exact amounts.
+  - One-off and yearly payments sit side by side, with the 15-year total
+    underneath.
+  - "Costs covered (not income)" is a separate dashed panel and is never added
+    to income.
+  - Below 1 ha plantable, no money is shown at all.
+  - Headings use plain English ("Riverside shade bonus"); scheme terms
+    ("EWCO additional contribution: riparian buffers") sit in each card's
+    detail.
+- **Why:** It's an estimate, and false precision undermines trust.
+
+### D35. Implementation notes
+- **Date:** 2026-10-16
+- **What:**
+  - **MapLibre worker:** MapLibre 6 loads its web worker from a file next to
+    its bundle, which Next.js moves. `scripts/copy-maplibre-worker.mjs` copies
+    it to `public/vendor/` (git-ignored) before `dev` and `build`, and
+    `setWorkerUrl` points to it.
+  - **Map handle:** `next/dynamic` doesn't forward refs, so the map's handle
+    is passed as an ordinary prop.
+  - **Areas in the browser:** they come from Turf's spherical maths, which is
+    about 0.3% below the database's British Grid figure (8.97 vs 9.00 ha). The
+    map step labels them "about"; results always show the database's numbers.
+  - **Uploaded MultiPolygons:** Terra Draw only edits single Polygons, so
+    these are shown and screened, and can be renamed or deleted, but not
+    reshaped.
+  - **Drawing accessibility:** drawing needs a mouse or touch screen. Upload
+    is the keyboard-accessible alternative, and the page says so.
+- **Why:** Recorded so these quirks aren't rediscovered later.
+
+### Phase 3 test results (local)
+- **Date:** 2026-10-16
+- All five Phase 2 test sites were uploaded and screened through the UI. Every
+  figure matches the database test:
+  1. Fine site: about £31,900 one-off, about £3,600 a year, about £85,900
+     total, costs covered up to about £91,800.
+  2. Brampton Wood: 0 ha plantable, no money shown.
+  3. Fen site: 0 ha plantable, no money shown.
+  4. Riparian site: about £69,600 one-off with public access, or about
+     £36,300 without, plus "Allowing public access would add £33,300".
+  5. SSSI edge: 4.77 ha plantable, with the map split along the SSSI boundary.
+     The 0.06 ha block is marked "not paid".
+- Also checked:
+  - Hand-drawing with live area, Enter to finish, and the aerial photo.
+  - Postcode search, found and not found.
+  - The outside-region warning blocking Continue.
+  - The overlap error from the server, and the unanswered question.
+  - Back to map, and the browser Back button.
+  - Phone width (375 px): no sideways scrolling, 44 px tap targets.
+  - The production build.

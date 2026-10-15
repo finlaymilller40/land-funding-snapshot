@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Muted, earthy palette. Text pairs meet WCAG AA on paper and white:
+   ink 14.5:1, moss 9.0:1, muted 6.0:1, clay-text 6.0:1.
+   Sage and clay are fills only (too light for text). */
+@theme {
+  --color-paper: #f7f5ef;
+  --color-ink: #1f2421;
+  --color-muted: #55605a;
+  --color-line: #d9d4c7;
+  --color-moss: #2f4a32;
+  --color-moss-dark: #243a27;
+  --color-moss-tint: #e7ede3;
+  --color-sage: #7d9a6b;
+  --color-clay: #b4664a;
+  --color-clay-text: #8f4a31;
+  --color-clay-tint: #f6e9e2;
+  --color-warn-bg: #fbf1d6;
+  --color-warn-text: #6b4a00;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* One clear, high-contrast focus style for everything keyboard-reachable. */
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px #ffd84d;
+}
+
+.maplibregl-canvas:focus-visible {
+  outline-offset: -3px;
+}
+
+/* Headings focused by the page (to announce a new step or an error) are not
+   interactive, so they don't need a focus ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+  box-shadow: none;
 }

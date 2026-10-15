@@ -1,57 +1,47 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
-import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
-// Reads the test row at request time, so every visit shows the live database.
-async function HealthCheck() {
-  await connection();
-
-  const { data, error } = await supabase
-    .from("health_check")
-    .select("id, message, checked_at")
-    .eq("id", 1)
-    .maybeSingle();
-
-  if (error) {
-    return (
-      <p className="rounded-md border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200">
-        Could not read from Supabase: {error.message}
-      </p>
-    );
-  }
-
-  if (!data) {
-    return (
-      <p className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-        Connected, but the health_check row is missing.
-      </p>
-    );
-  }
-
-  return (
-    <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950">
-      <p className="font-medium">{data.message}</p>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Row {data.id}, created {new Date(data.checked_at).toUTCString()}
-      </p>
-    </div>
-  );
-}
+const steps = [
+  { title: "Draw your fields", text: "Find your land by postcode and draw each field, or upload a file." },
+  { title: "Answer one question", text: "Would you allow public access on foot?" },
+  { title: "See your estimate", text: "Payments, what the land could earn, and what to check next." },
+];
 
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-6 py-16">
-      <h1 className="text-3xl font-semibold tracking-tight">
-        Land Funding Snapshot
+    <div className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
+      <h1 className="text-3xl font-bold leading-tight text-moss sm:text-4xl">
+        What woodland funding could your land get?
       </h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Phase 0 pipeline check: this page reads one row from Supabase.
+      <p className="mt-4 text-lg">
+        Draw your fields on a map and see which woodland creation payments they may qualify
+        for, roughly how much they could earn, and what to check next.
       </p>
-      <Suspense
-        fallback={<p className="text-zinc-500">Checking the database…</p>}
+      <p className="mt-4 rounded border-l-4 border-moss bg-moss-tint px-4 py-3">
+        This prototype covers <strong>Cambridgeshire and Peterborough</strong> only.
+      </p>
+
+      <Link
+        href="/check"
+        className="mt-8 inline-block rounded bg-moss px-6 py-3 text-lg font-semibold text-white no-underline shadow-[0_2px_0_#16241a] hover:bg-moss-dark"
       >
-        <HealthCheck />
-      </Suspense>
-    </main>
+        Check your land
+      </Link>
+
+      <h2 className="mt-12 text-xl font-bold">How it works</h2>
+      <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+        {steps.map((step, i) => (
+          <li key={step.title} className="rounded border border-line bg-white p-4">
+            <span className="text-sm font-semibold text-muted">Step {i + 1}</span>
+            <p className="mt-1 font-semibold">{step.title}</p>
+            <p className="mt-1 text-sm text-muted">{step.text}</p>
+          </li>
+        ))}
+      </ol>
+
+      <p className="mt-8 text-sm text-muted">
+        Based on the England Woodland Creation Offer and public map data. It is an estimate,
+        not an offer of grant.
+      </p>
+    </div>
   );
 }

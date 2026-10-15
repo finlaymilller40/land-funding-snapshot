@@ -29,6 +29,12 @@ values per block and in total. Rates and rules live in the private `rules`
 schema with their gov.uk source and check date. Not yet pushed to the hosted
 database.
 
+**Phase 3 (website): built locally, 2026-10-16.** A start page and a
+three-step `/check` flow: draw or upload fields, answer one question about
+public access, then see the estimate. Headline figures are rounded and
+labelled "about", costs covered are shown separately from income, and a map
+shows what could be planted and why the rest was left out.
+
 ## Stack
 
 - Next.js (TypeScript, App Router, Tailwind CSS) on Vercel
@@ -52,7 +58,9 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<local anon key>
 ```
 
-Then `npm run dev` and open http://localhost:3000.
+Then `npm run load-layers` (first time only, about 6 minutes) and `npm run dev`, and open
+http://localhost:3000/check. `npm run dev` and `npm run build` first copy MapLibre's
+web worker into `public/vendor/`.
 
 Never put the service role key in `.env.local` or any front-end code.
 
