@@ -150,5 +150,25 @@ from (select case when e.key is null or a.key is null then 'x'
                   when abs(e.value - a.value) <= e.tol then 'pass' else 'x' end status
       from expected e full join actual a on a.id = e.id and a.key = e.key) s;
 
+\echo === Map shapes agree with the numbers (area of returned GeoJSON vs reported ha, within 0.02 ha) ===
+select r.id as site, (b ->> 'block')::int as block,
+       (b ->> 'eligible_ha')::numeric as eligible_ha,
+       round((coalesce(st_area(st_transform(st_geomfromgeojson(b #>> '{geometry,eligible}'), 27700)), 0) / 1e4)::numeric, 2) as eligible_shape_ha,
+       (b ->> 'removed_ha')::numeric as removed_ha,
+       round((coalesce((select sum(st_area(st_transform(st_geomfromgeojson(x ->> 'geometry'), 27700)))
+                        from jsonb_array_elements(b #> '{geometry,removed}') x), 0) / 1e4)::numeric, 2) as removed_shapes_ha,
+       case when abs((b ->> 'eligible_ha')::numeric - coalesce(st_area(st_transform(st_geomfromgeojson(b #>> '{geometry,eligible}'), 27700)), 0)::numeric / 1e4) <= 0.02
+             and abs((b ->> 'removed_ha')::numeric - coalesce((select sum(st_area(st_transform(st_geomfromgeojson(x ->> 'geometry'), 27700)))
+                        from jsonb_array_elements(b #> '{geometry,removed}') x), 0)::numeric / 1e4) <= 0.02
+            then 'pass' else 'FAIL' end as status
+from results r, jsonb_array_elements(r.result -> 'blocks') b
+order by 1, 2;
+
+\echo === Region outline (what the map shows as the covered area) ===
+select f #>> '{properties,name}' as region, f #>> '{geometry,type}' as type,
+       length((f -> 'geometry')::text) as bytes,
+       round((st_area(st_transform(st_geomfromgeojson(f ->> 'geometry'), 27700)) / 1e6)::numeric, 1) as km2
+from jsonb_array_elements(public.region_outline() -> 'features') f;
+
 \echo === Time per call ===
 select id, ms from results order by id;
