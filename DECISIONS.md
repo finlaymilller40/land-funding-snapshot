@@ -115,3 +115,11 @@ records the date, what was decided, why, and the alternatives considered.
   writes are refused.
 - **Alternatives:** Rely on the grant already in the first migration; turn
   auto-expose on (every new table becomes reachable by default).
+
+### Phase 0 complete
+- **Date:** 2026-10-15
+- **Result:** The live site at https://land-funding-snapshot-snd5.vercel.app
+  displays the `health_check` row read from the hosted Supabase database
+  (row 1, created 2026-10-15 16:57:53 UTC, matching the hosted migration
+  push rather than the local database). Next.js → Supabase → Vercel works end
+  to end, with RLS on and only the URL and anon key in the front end.

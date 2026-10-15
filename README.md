@@ -12,8 +12,10 @@ explains the results.
 
 ## Status
 
-Phase 0: empty pipeline. The home page reads one test row from Supabase to
-prove Next.js → Supabase → Vercel works end to end.
+**Phase 0 (empty pipeline): done, 2026-10-15.** The live site at
+https://land-funding-snapshot-snd5.vercel.app reads one test row from the
+hosted Supabase database on every visit, proving Next.js → Supabase → Vercel
+works end to end.
 
 ## Stack
 
