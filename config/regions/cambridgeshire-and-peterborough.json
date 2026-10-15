@@ -1,0 +1,11 @@
+{
+  "id": "cambridgeshire-and-peterborough",
+  "name": "Cambridgeshire and Peterborough",
+  "boundary": {
+    "service": "https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/Combined_Authorities_December_2025_Boundaries_EN_BFC/FeatureServer/1",
+    "where": "CAUTH25CD = 'E47000008'",
+    "code": "E47000008",
+    "source": "ONS Combined Authorities (December 2025) Boundaries EN BFC",
+    "attribution": "Source: Office for National Statistics licensed under the Open Government Licence v3.0. Contains OS data © Crown copyright and database right 2026."
+  }
+}
