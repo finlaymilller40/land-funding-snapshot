@@ -12,7 +12,10 @@
  * region, split large polygons (ST_Subdivide) and replace that layer's rows
  * in layers.features. Safe to re-run.
  *
- * DATABASE_URL defaults to the local Supabase database.
+ * DATABASE_URL defaults to the local Supabase database. For the hosted
+ * database use the Session pooler connection string (IPv4, supports COPY).
+ * The password is passed to GDAL through the environment, never on the
+ * command line, and remote connections are encrypted.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
@@ -68,12 +71,14 @@ function readJson<T>(file: string): T {
   return JSON.parse(readFileSync(path.join(ROOT, file), "utf8")) as T;
 }
 
+const dbUrl = new URL(DATABASE_URL);
+const IS_LOCAL_DB = ["127.0.0.1", "localhost"].includes(dbUrl.hostname);
+
 // GDAL runs in Docker, so a database on this machine is reached via
-// host.docker.internal rather than localhost.
+// host.docker.internal rather than localhost. No password here: see gdal().
 function gdalDatabaseUrl(): string {
-  const url = new URL(DATABASE_URL);
-  if (["127.0.0.1", "localhost"].includes(url.hostname)) url.hostname = "host.docker.internal";
-  return `PG:dbname=${url.pathname.slice(1)} host=${url.hostname} port=${url.port || 5432} user=${decodeURIComponent(url.username)} password=${decodeURIComponent(url.password)}`;
+  const host = IS_LOCAL_DB ? "host.docker.internal" : dbUrl.hostname;
+  return `PG:dbname=${dbUrl.pathname.slice(1)} host=${host} port=${dbUrl.port || 5432} user=${decodeURIComponent(dbUrl.username)}`;
 }
 
 function gdal(rawDir: string, args: string[]) {
@@ -82,6 +87,10 @@ function gdal(rawDir: string, args: string[]) {
     [
       "run", "--rm",
       "-v", `${rawDir}:/data`,
+      // Values come from the docker CLI's own environment (below), so the
+      // password never appears in the process list or in error messages.
+      "-e", "PGPASSWORD",
+      "-e", "PGSSLMODE",
       "-e", "OGR_ORGANIZE_POLYGONS=ONLY_CCW",
       // Retry pages that time out or fail; a long download should not die on one blip.
       "-e", "GDAL_HTTP_MAX_RETRY=5",
@@ -91,7 +100,14 @@ function gdal(rawDir: string, args: string[]) {
       GDAL_IMAGE,
       ...args,
     ],
-    { stdio: ["ignore", "inherit", "inherit"] },
+    {
+      stdio: ["ignore", "inherit", "inherit"],
+      env: {
+        ...process.env,
+        PGPASSWORD: decodeURIComponent(dbUrl.password),
+        PGSSLMODE: IS_LOCAL_DB ? "disable" : "require",
+      },
+    },
   );
 }
 
@@ -257,8 +273,20 @@ async function main() {
   const rawDir = path.join(ROOT, "data", "raw", region.id);
   mkdirSync(rawDir, { recursive: true });
 
-  const db = new Client({ connectionString: DATABASE_URL });
+  const db = new Client({
+    host: dbUrl.hostname,
+    port: Number(dbUrl.port || 5432),
+    database: dbUrl.pathname.slice(1),
+    user: decodeURIComponent(dbUrl.username),
+    password: decodeURIComponent(dbUrl.password),
+    // Encrypt remote connections. Supabase's pooler certificate is not from a
+    // public CA, so this is "require" (encrypted) rather than full verification.
+    ssl: IS_LOCAL_DB ? false : { rejectUnauthorized: false },
+  });
   await db.connect();
+  // Clipping big layers can take minutes on a small server; never time out the loader.
+  await db.query("set statement_timeout = 0");
+  console.log(`Database: ${IS_LOCAL_DB ? "local" : dbUrl.hostname}`);
   try {
     const bbox = await loadRegion(db, region, rawDir, opts.refresh);
     for (const layer of layers) {

@@ -486,3 +486,51 @@ records the date, what was decided, why, and the alternatives considered.
   - Back to map, and the browser Back button.
   - Phone width (375 px): no sideways scrolling, 44 px tap targets.
   - The production build.
+
+## Hosted database preparation
+
+### D36. Database size and the free tier
+- **Date:** 2026-10-16
+- **What:** Local database: 161–163 MB in total. The `layers` schema is
+  141 MB (120 MB table data, 13 MB large-value storage, 7.5 MB indexes),
+  `rules` is 0.2 MB, and everything else about 20 MB. Stay on the free tier
+  for Cambridgeshire and Peterborough.
+- **Why:** The free tier allows 500 MB per project, and the project becomes
+  read-only above that. We use about 33%. Egress (5 GB a month) and the
+  3-second anon timeout are also fine: the worst case, a 2,000 ha site, took
+  260 ms locally. There are no other Supabase projects in the organisation.
+- **Alternatives:** Pro plan ($25/month, 8 GB). All of England would be roughly
+  5–6 GB at this density, so it would need Pro or a slimmer layout (e.g.
+  dropping the full-attribute JSON and the reference-only Low Sensitivity
+  v5.0).
+
+### D37. Loader hardening for a remote database
+- **Date:** 2026-10-16
+- **What:**
+  - The database password reaches GDAL through the Docker CLI's environment
+    (`-e PGPASSWORD`), not the command line, so it never appears in the
+    process list or in error messages. Checked with 60 process-list samples
+    during a load.
+  - Remote connections are encrypted (`sslmode=require`). This means
+    encrypted but not certificate-verified, because Supabase's pooler
+    certificate isn't from a public certificate authority.
+  - The loader's own session has `statement_timeout = 0`.
+  - `scripts/sql/verify_load.sql` compares features, area and pieces per
+    layer, rules row counts, privileges and database size with the local
+    reference load.
+- **Why:** Loading into the hosted database uses its real password over the
+  internet.
+- **Alternatives:** Full certificate verification with Supabase's CA file.
+
+### D38. Keep-alive job
+- **Date:** 2026-10-16
+- **What:** `.github/workflows/keep-alive.yml` calls `region_outline()` with
+  the anon key on Mondays and Thursdays. It fails (and GitHub emails) if the
+  call fails or returns no regions. The URL and key come from repository
+  secrets `SUPABASE_URL` and `SUPABASE_ANON_KEY`, and the job has no GitHub
+  permissions.
+- **Why:** Free projects pause after 7 days of inactivity. Twice a week
+  leaves room for GitHub's scheduled runs, which can be delayed or skipped.
+  Note that GitHub turns off scheduled workflows in repos with no commits
+  for 60 days.
+- **Alternatives:** Accept pausing; upgrade to Pro; ping weekly.
