@@ -135,7 +135,22 @@
     "licence": "Open Government Licence v3.0",
     "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
     "attribution": "Contains, or is based on, information supplied by the Forestry Commission. © Crown copyright and database right 2026 Ordnance Survey [100021242].",
-    "class_field": "category"
+    "class_field": "category",
+    "notes": "Latest version (v5.0). Kept for reference; the EWCO low sensitivity payment uses v4.0 (ewco_low_sensitivity_v4)."
+  },
+  {
+    "id": "ewco_low_sensitivity_v4",
+    "name": "England Woodland Creation Low Sensitivity Map v4.0",
+    "category": "ewco_payment",
+    "publisher": "Forestry Commission",
+    "service": "https://services2.arcgis.com/mHXjwgl3OARRqqD4/arcgis/rest/services/England_Woodland_Creation_Low_Sensitivity_Map_v4/FeatureServer/0",
+    "info_url": "https://www.arcgis.com/home/item.html?id=fda2456794054ee9aa73935ee35b1044",
+    "version": "v4.0",
+    "licence": "Open Government Licence v3.0",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "Contains, or is based on, information supplied by the Forestry Commission. © Crown copyright and database right 2026 Ordnance Survey [100021242].",
+    "class_field": "sensitivity",
+    "notes": "The version gov.uk names for the EWCO low sensitivity land payment (checked 2026-10-15)."
   },
   {
     "id": "nfi_woodland",

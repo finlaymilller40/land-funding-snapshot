@@ -22,6 +22,13 @@ layers for Cambridgeshire and Peterborough sit in a private `layers` schema.
 `layers.site_overlaps(polygon)` lists every layer a site overlaps, with the
 area in hectares, in milliseconds. Not yet pushed to the hosted database.
 
+**Phase 2 (EWCO rules engine): built locally, 2026-10-15.** `screen_site()`
+takes a site (GeoJSON, one polygon per block) and a public access answer, and
+returns the eligible area, what was removed and why, flags, payments and £
+values per block and in total. Rates and rules live in the private `rules`
+schema with their gov.uk source and check date. Not yet pushed to the hosted
+database.
+
 ## Stack
 
 - Next.js (TypeScript, App Router, Tailwind CSS) on Vercel
@@ -74,6 +81,24 @@ Test the overlap query on three sample sites:
 
 ```bash
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_overlaps.sql
+```
+
+## Screening a site
+
+`public.screen_site(site jsonb, public_access boolean)` is the only database
+function the website can call (anon key).
+
+```bash
+curl -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/screen_site" \
+  -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"site": {"type": "FeatureCollection", "features": [...]}, "public_access": true}'
+```
+
+Rates, exclusions, flags and wording are rows in `rules.*` tables, not code.
+Test against hand-worked values:
+
+```bash
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql
 ```
 
 ### Data sources and attribution

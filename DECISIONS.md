@@ -226,3 +226,143 @@ records the date, what was decided, why, and the alternatives considered.
   - **Fen east of Ramsey:** Deep Peaty Soils 9 ha, ALC Grade 1 9 ha. 0.7 ms.
 - **Larger sites:** 500 ha took about 11 ms and 2,000 ha about 53 ms. The
   spatial index (`features_geom_idx`) is used.
+
+## Phase 2: EWCO rules engine
+
+### D20. Rules checked against gov.uk; where they differ from the brief
+- **Date:** 2026-10-15
+- **What:** Checked the [EWCO guidance](https://www.gov.uk/guidance/england-woodland-creation-offer)
+  (updated 11 Aug 2026) and [Additional contributions](https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco)
+  (updated 5 Oct 2026). All rates match the brief. Differences recorded as
+  limitations in `rules.messages`:
+  - SSSI, Priority Habitat, Scheduled Monuments (+20 m) and deep peat are not
+    listed as ineligible on these pages. They are kept as screening
+    exclusions from wider woodland creation rules and labelled that way.
+  - Developed land and hard standing are ineligible, but not mapped.
+  - Up to 10% may sit outside the low sensitivity area (map v4.0 variant 3)
+    if the only sensitivity there is agricultural grade. Not applied.
+  - Minimum width is 20 m (10 m for riparian buffers and shelterbelts). Not
+    checked.
+  - Recreational access can't be paid on CRoW or existing access land. Not
+    checked.
+  - Red squirrel lower-tier nature recovery is not assessed.
+- **Why:** The brief asked for differences to be flagged, and users should see
+  what the screen can't check.
+
+### D21. Low Sensitivity Map v4.0 for the payment, v5.0 kept
+- **Date:** 2026-10-15
+- **What:** Loaded `ewco_low_sensitivity_v4` (45,124 ha in the region) and
+  pointed the low sensitivity rate at it. v5.0 (`ewco_low_sensitivity`,
+  44,291 ha) stays loaded for reference.
+- **Why:** gov.uk names v4.0 for the payment.
+- **Alternatives:** Use v5.0, the latest map, but not the one named.
+
+### D22. screen_site() is open to anon, with abuse limits
+- **Date:** 2026-10-15
+- **What:** `public.screen_site(site jsonb, public_access boolean)` is
+  `SECURITY DEFINER` with a pinned `search_path`. Execute is granted to
+  `anon` and `authenticated` only. The `rules` and `layers` schemas and their
+  functions stay private. Limits, all stored in `rules.settings`: at most 50
+  blocks, 2,000 ha drawn, and the whole site inside a loaded region. I also
+  reject overlapping blocks, which wasn't asked for, so area isn't counted
+  twice. Errors come back as HTTP 400 with a plain message.
+- **Why:** No login exists yet. Running with the owner's rights lets it read
+  layers while returning only results.
+- **Alternatives:** `authenticated` only; no limits.
+
+### D23. Input as GeoJSON, output as one JSON document
+- **Date:** 2026-10-15
+- **What:** Input is a GeoJSON `FeatureCollection` in lon/lat, one Polygon or
+  MultiPolygon per block, with an optional `properties.name`. Output is a
+  single JSON document with `summary`, `income` (one-off list and total,
+  annual maintenance with its 15-year total, overall total),
+  `costs_covered`, `blocks`, `site_flags`, `limitations`, `rates_checked`
+  and `sources`.
+- **Why:** It matches what a map drawing tool produces and what the website
+  and AI explainer will consume.
+- **Alternatives:** Arrays of PostGIS geometries; table rows per block per
+  payment.
+
+### D24. "Touches" and flags are tested on the eligible part of each block
+- **Date:** 2026-10-15
+- **What:** Payment layers must touch the block after removals. Flags (shallow
+  or patchy peat, ALC Grade 1/2) are measured on the same eligible area.
+- **Why:** Removed land won't be planted, so it isn't part of the compartment.
+  Applying the same idea to flags was my choice. As a result, a block that is
+  entirely removed (e.g. the fen test site, all deep peat) shows no
+  Grade 1 flag.
+- **Alternatives:** Test the block as drawn.
+
+### D25. Removal reasons in priority order
+- **Date:** 2026-10-15
+- **What:** Each square metre is credited to the first exclusion that covers
+  it: SSSI, Scheduled Monument (+20 m), Priority Habitat, deep peat, existing
+  woodland (NFI `Woodland` class only). Order and buffers are in
+  `rules.ewco_exclusions`.
+- **Why:** The per-reason figures then add up to the total removed.
+- **Alternatives:** Report each reason's full overlap, which can add up to
+  more than the total.
+
+### D26. Low sensitivity tolerance for edge slivers
+- **Date:** 2026-10-15
+- **What:** The whole eligible proposal counts as inside the low sensitivity
+  map if no more than 0.5% of it, or 100 m², whichever is smaller, falls
+  outside.
+- **Why:** Different maps rarely line up exactly at their edges.
+- **Alternatives:** Strictly 100%.
+
+### D27. Rules as data in a private `rules` schema
+- **Date:** 2026-10-15
+- **What:**
+  - `rules.ewco_rates`: payment name, kind (one-off / annual / costs
+    covered), £ rate, unit, years, layer and qualifying classes,
+    qualification method (touches / area inside / whole site inside /
+    eligible area), exclusive group, public access requirement,
+    prerequisite payment, design condition, source URL, date checked.
+  - I also moved exclusions, flags, settings and all wording into tables
+    (`ewco_exclusions`, `ewco_flags`, `settings`, `messages`), so the
+    function contains no rates, thresholds or explanation text.
+  - Layer ids aren't foreign keys, because `layers.sources` is filled by the
+    loader after migrations run. The tests check every referenced layer
+    exists.
+  - RLS is on for all tables, with no policies.
+- **Why:** Rates and rules can change without touching code, and every number
+  carries its source and the date it was checked.
+- **Alternatives:** Only rates in a table, with the rest in the function.
+
+### D28. Engine details
+- **Date:** 2026-10-15
+- **What:**
+  - **Rounding:** hectares are shown to 2 decimal places. Each payment is
+    rounded to whole pounds per block, and totals are sums of those.
+    Maintenance's 15-year total is the rounded yearly amount × 15.
+  - **Order:** prerequisites are evaluated first (close to settlements before
+    recreational access), then the highest rate, so nature recovery keeps
+    its top tier.
+  - **Below-minimum blocks:** blocks under 0.1 ha are flagged and left out of
+    the site's 1 ha total and the payments. Below 1 ha, the site gets a flag
+    and no payments.
+  - **Slivers:** overlaps under 1 m² are ignored.
+  - **Missed payments:** if public access is answered "no", recreational
+    access is listed under `not_applied` with what it would have been worth.
+    This wasn't asked for.
+- **Why:** Predictable figures, and a clear "what you're missing".
+
+### Phase 2 test results (local)
+- **Date:** 2026-10-15
+- `scripts/sql/test_screen_site.sql` compares 91 hand-worked values (gov.uk
+  rates applied to raw overlaps from `layers.site_overlaps`) with
+  `screen_site()` output. **91 pass, 0 missing or unexpected.** Calls take
+  7 to 160 ms; the first call on a cold cache is the slowest.
+- Sites:
+  1. Clearly fine (9 ha): £31,871 one-off, £3,600 a year, £85,871 total, up
+     to £91,800 costs covered.
+  2. Brampton Wood SSSI: all 9 ha removed, below minimum, £0.
+  3. Fen east of Ramsey: all 9 ha deep peat, below minimum, £0.
+  4. Riparian site, with and without public access: £123,596 or £90,296.
+  5. SSSI edge: 4.23 ha removed, 4.77 ha eligible, plus a 0.06 ha block
+     flagged as below minimum. £33,832.
+- Via the REST API with the anon key: `screen_site` works; `rules` and
+  `layers` are unreachable; bad input returns HTTP 400 with a clear message.
+- All four migrations apply cleanly to an empty database, followed by a full
+  reload of the layers.
