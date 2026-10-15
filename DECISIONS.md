@@ -101,3 +101,17 @@ records the date, what was decided, why, and the alternatives considered.
   is not shipped to the site. The forced "fix" would downgrade the Next.js lint
   config to v14.
 - **Alternatives:** Force the fix (breaks linting); add an npm `overrides` pin.
+
+### D11. Explicit anon grant for the hosted project
+- **Date:** 2026-10-15
+- **What:** The hosted Supabase project has "Automatically expose new tables"
+  off and automatic RLS on. A separate migration grants `SELECT` on
+  `public.health_check` to `anon` and nothing else.
+- **Why:** With auto-expose off, API roles get no table privileges unless
+  granted. RLS policies only filter rows a role is already allowed to touch, so
+  the read-only policy needs a matching grant. Keeping it as its own migration
+  makes the requirement explicit. Tested locally by revoking all `anon`
+  privileges, applying only this migration, and confirming reads succeed and
+  writes are refused.
+- **Alternatives:** Rely on the grant already in the first migration; turn
+  auto-expose on (every new table becomes reachable by default).
