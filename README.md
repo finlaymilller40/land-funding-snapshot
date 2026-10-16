@@ -15,21 +15,24 @@ explains the results.
 **Phase 0 (empty pipeline): done, 2026-10-15.** The live site at
 https://land-funding-snapshot-snd5.vercel.app reads one test row from the
 hosted Supabase database on every visit, proving Next.js → Supabase → Vercel
-works end to end.
+works end to end. (The test page has since been replaced by the website.)
 
-**Phase 1 (open data layers): loaded locally, 2026-10-15.** Twelve open
+**Phase 1 (open data layers): loaded locally, 2026-10-15.** Thirteen open
 layers for Cambridgeshire and Peterborough sit in a private `layers` schema.
 `layers.site_overlaps(polygon)` lists every layer a site overlaps, with the
-area in hectares, in milliseconds. Not yet pushed to the hosted database.
+area in hectares, in milliseconds. Loaded on the hosted database since
+2026-10-16.
 
 **Phase 2 (EWCO rules engine): built locally, 2026-10-15.** `screen_site()`
 takes a site (GeoJSON, one polygon per block) and a public access answer, and
 returns the eligible area, what was removed and why, flags, payments and £
 values per block and in total. Rates and rules live in the private `rules`
-schema with their gov.uk source and check date. Not yet pushed to the hosted
-database.
+schema with their gov.uk source and check date. Live on the hosted database
+since 2026-10-16.
 
-**Phase 3 (website): built locally, 2026-10-16.** A start page and a
+**Phase 3 (website): live, 2026-10-16** at
+https://land-funding-snapshot-snd5.vercel.app, running on the hosted Supabase
+database (all 13 layers loaded, 162 MB of the free tier's 500 MB). A start page and a
 three-step `/check` flow: draw or upload fields, answer one question about
 public access, then see the estimate. Headline figures are rounded and
 labelled "about", costs covered are shown separately from income, and a map

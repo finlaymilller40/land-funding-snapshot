@@ -669,3 +669,28 @@ records the date, what was decided, why, and the alternatives considered.
   - `scripts/verify_hosted.sh` runs `verify_load.sql` and
     `test_screen_site.sql` against `DATABASE_URL`, passing it to psql through
     the environment only, and fails loudly if it can't connect.
+
+### Phase 3 live
+- **Date:** 2026-10-16
+- **Result:** The website is live at
+  https://land-funding-snapshot-snd5.vercel.app (commit `5142d37`, deployed
+  by Vercel), using the hosted Supabase database.
+- **Hosted database:**
+  - All five project migrations are applied, and all 13 layers loaded.
+  - `scripts/verify_hosted.sh` passes: every layer matches the local load
+    on features, hectares and pieces; screen_site() passes 91/91, the 7
+    shape checks and both fail-closed checks.
+  - Size: 162 MB, 32% of the free tier's 500 MB.
+  - Security Advisor: only the 4 intended warnings remain (D41). Anon now
+    gets "permission denied" from `rls_auto_enable()` (D42).
+- **Live checks** in a real browser:
+  - All five test sites match the database test through the live UI: fine
+    site about £31,900 one-off / about £85,900 over 15 years; SSSI and fen
+    sites £0; riparian about £69,600 with access or about £36,300 without
+    (plus "would add £33,300"); SSSI edge 4.77 ha plantable, about £5,200
+    plus about £1,900 a year.
+  - Each estimate appears in about 0.25–0.5 s, and every API call went to
+    the hosted project.
+- **Keep-alive:** the `SUPABASE_URL` and `SUPABASE_ANON_KEY` repository
+  secrets were added. The first manual run of "Keep Supabase awake" passed
+  ("Regions returned: 1"); after that it runs on Mondays and Thursdays.
