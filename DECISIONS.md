@@ -694,3 +694,143 @@ records the date, what was decided, why, and the alternatives considered.
 - **Keep-alive:** the `SUPABASE_URL` and `SUPABASE_ANON_KEY` repository
   secrets were added. The first manual run of "Keep Supabase awake" passed
   ("Regions returned: 1"); after that it runs on Mondays and Thursdays.
+
+## Phase 3b: explanation and interactivity
+
+### D43. Developed land as a screening exclusion
+- **Date:** 2026-10-16
+- **What:** Natural England's Living England 2022–23, classes "Built-up Areas
+  and Gardens" and "Solar Farms", loaded as `developed_land` (zones 6–9;
+  59,287 features; 29,897 ha; about 46 MB). It is the sixth exclusion, after
+  existing woodland.
+  - **Loader changes:** `extra_services` (several service layers merged into
+    one) and `where` (class filter).
+  - **Loader bug fixed:** the geometry type is now always declared as
+    MULTIPOLYGON. An empty first zone had created a layer with no geometry,
+    and later zones were then appended without their shapes.
+- **Why:** The user test (a 1,153 ha block over an industrial estate) showed
+  built-up land being treated as plantable. The EWCO guidance says developed
+  land and hard standing are ineligible. Solar farms are developed land on
+  long leases.
+- **Alternatives:** ONS Built Up Areas 2024 (too coarse: 20 ha minimum,
+  misses farm yards); OS Open Map Local buildings (footprints only).
+
+### D44. Ranges: low = land inside the target area, high = the "touches" rule
+- **Date:** 2026-10-16
+- **What:** For every map-based payment, `screen_site()` returns:
+  - `inside_ha` and `inside_pct`: the plantable land actually inside the
+    target area;
+  - `low_amount_gbp`: the rate × `inside_ha`;
+  - the qualifying shape.
+
+  Totals are given as both low and high. Where they differ, the headline
+  shows a range and one sentence explains it. Cards show both exact figures.
+  For the nature recovery tiers, the low figure uses the tier that applies,
+  times the area inside that tier.
+- **Why:** The official rule pays a whole field that merely touches a target
+  area, which can overstate the estimate. Showing both is honest.
+- **Alternatives:** The touches rule only; the inside area only.
+
+### D45. Large-block warning
+- **Date:** 2026-10-16
+- **What:** Fields drawn larger than `rules.settings.large_block_ha` (50) get
+  a flag. The flag text is in `rules.messages`, with the threshold filled in.
+  The headline also carries a note that the higher figure is likely to
+  overstate.
+- **Why:** Real compartments are designed with a Woodland Officer, so "touch"
+  payments on a huge block overstate the estimate.
+
+### D46. "How to get this" as data
+- **Date:** 2026-10-16
+- **What:** `rules.guidance_steps` holds 7 steps from gov.uk, checked
+  2026-10-16, each with a source link:
+  - register on Rural Payments;
+  - talk to a Woodland Officer;
+  - the planning grant (shown only at 5 ha or more plantable);
+  - a planting plan that meets the UK Forestry Standard;
+  - apply by 31 May (3–5 months to process);
+  - when each payment is paid;
+  - the land becoming non-agricultural.
+
+  `screen_site()` returns the steps that apply as `next_steps`.
+- **Why:** Same principle as the rates: wording with a source and a date
+  checked, not hard-coded.
+
+### D47. site_context(): layer shapes near the land only
+- **Date:** 2026-10-16
+- **What:** `public.site_context(site)` returns one group per payment target
+  area (by layer and classes), per exclusion and per flag. Each is clipped to
+  within `context_buffer_m` (1,000 m) of the drawn land, simplified (5 m,
+  rising to about 13 m at 2,000 ha) and labelled. It returns no attributes.
+  - **Same input checks as `screen_site()`:** both use a shared private
+    `rules.parse_site()`.
+  - **Not merged per request:** pieces are collected without merging, since
+    merging thousands of pieces cost 1.3 s per request. Only pieces crossing
+    the 1 km edge are clipped, and slivers under 50 m² are dropped.
+  - **Speed:** about 130 ms locally for a farm, about 0.9 s at 2,000 ha.
+  - **Failure handling:** the website loads it after the estimate and
+    carries on if it fails.
+- **Why:** Layer toggles on the results map, without making the raw layers
+  public.
+
+### D48. One map-first workspace
+- **Date:** 2026-10-16
+- **What:** `/check` is a single workspace.
+  - **Layout:** the map is always on the left (desktop) or full screen behind
+    a three-height bottom sheet (phone: peek, half or full, set by a handle
+    button). The panel moves from fields, to the question, to results.
+  - **Live updates:** the public-access answer becomes a switch that re-runs
+    the estimate at once. Field edits, renames and deletions re-run it 1 s
+    after the last change, and out-of-date replies are ignored.
+  - **Linked selection:** "Show on map" on a payment card switches on that
+    target area and outlines the qualifying land. Clicking a field on the map
+    opens its breakdown in the panel.
+  - **Layer key:** a "Map layers and key" panel on the map lists the target
+    areas, exclusions and flags, all off by default.
+  - **Shared colours:** a single colour per payment links the map, the cards
+    and the "where the money comes from" bar (high figures over 15 years,
+    excluding costs covered).
+- **Why:** It matches the agreed map-first, linked design, and the user
+  never has to go back through the steps to see a change.
+- **Implementation notes:**
+  - MapLibre's stylesheet makes the map container `position: relative`, so
+    the container is sized explicitly.
+  - Fields are labelled from a single interior point, because polygon labels
+    repeat in every map tile.
+  - Clicking a field scrolls only the panel, not the page.
+
+### D49. Lighter result shapes for big blocks
+- **Date:** 2026-10-16
+- **What:**
+  - Result shapes are simplified to max(1 m, √block area / 1,000), about
+    3.4 m for 1,150 ha.
+  - When at least 99.5% of a field is inside a target area, the qualifying
+    shape is omitted (`qualifying_is_whole_field`) and the map uses the
+    field's shape instead.
+- **Why:** At 2,000 ha the response was 2.3 MB. It is now 2.0 MB at
+  2,000 ha and 0.3–0.4 MB at 500 ha.
+
+### Phase 3b test results (local)
+- **Date:** 2026-10-16
+- **SQL tests:**
+  - `verify_load.sql`: 27/27, including developed land.
+  - `test_screen_site.sql`: 91/91, plus both fail-closed checks. The Phase 2
+    sites are unchanged, since none contain developed land.
+  - `test_explain_context.sql`: 47/47. It covers:
+    - inside areas for sites 1 and 4, worked out by hand;
+    - Huntingdon's inside areas recomputed independently from the layers;
+    - low ≤ high;
+    - the 49 ha (no flag) and 51 ha (flag) blocks;
+    - the planning-grant step at 9 ha but not 4.77 ha;
+    - `site_context()` returning shapes only within 1,000 m, no attributes,
+      the same input errors, and the right privileges.
+- **Browser, desktop (1280 px):**
+  - Summary, range, money bar, cards with inside area and percentage.
+  - "Show on map" highlighting, clicking a field on the map, the
+    public-access switch (0.2 s), a rename (re-run after 1.2 s), and
+    dragging a field (live re-run). Plain-English layer key.
+- **Browser, phone (375 px):** bottom sheet at three heights, no sideways
+  scrolling, toolbar clear of the zoom buttons.
+- **User-test case:** the 1,150 ha Huntingdon block now loses 761 ha
+  (mostly developed land) and shows about £2.07 m to £3.40 m one-off with the
+  large-field warning, instead of £7.7 m.

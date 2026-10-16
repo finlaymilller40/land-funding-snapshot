@@ -38,6 +38,17 @@ public access, then see the estimate. Headline figures are rounded and
 labelled "about", costs covered are shown separately from income, and a map
 shows what could be planted and why the rest was left out.
 
+**Phase 3b (explanation and interactivity): built locally, 2026-10-16.**
+- **Developed land** is now removed from the plantable area.
+- **Map-based payments** show how much land is inside the target area, and
+  touch-based payments give a low–high range.
+- **Very large fields** get a warning, and **"How to get this"** gives the
+  gov.uk steps.
+- **One map-first workspace:** layer toggles, linked selection, a live
+  public-access switch, and re-estimates as you edit fields.
+
+Not yet on the hosted database.
+
 ## Stack
 
 - Next.js (TypeScript, App Router, Tailwind CSS) on Vercel

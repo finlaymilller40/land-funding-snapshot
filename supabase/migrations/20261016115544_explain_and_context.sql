@@ -206,6 +206,7 @@ declare
   pay_amount numeric;
   pay_low numeric;
   any_large boolean := false;
+  shape_tol numeric;
   blocks_out jsonb := '[]';
   site_flags jsonb := '[]';
   one_off jsonb;
@@ -230,6 +231,9 @@ begin
     remaining := drawn[i];
     removed := '[]';
     shapes := '[]';
+    -- Result shapes: 1 m for normal fields, coarser for very large blocks
+    -- (about 3.4 m for 1,150 ha), which keeps big responses fast and small.
+    shape_tol := greatest(rules.setting('result_simplify_m'), (sqrt(st_area(drawn[i])) / 1000)::numeric);
     for ex in select * from rules.ewco_exclusions order by priority loop
       cover := rules.layer_near(remaining, ex.layer_id, ex.qualifying_classes, ex.buffer_m);
       continue when cover is null;
@@ -239,7 +243,7 @@ begin
       shapes := shapes || jsonb_build_object(
         'type', 'Feature',
         'properties', jsonb_build_object('code', ex.code, 'reason', ex.label),
-        'geometry', rules.to_geojson(cut));
+        'geometry', rules.to_geojson(cut, shape_tol));
       removed := removed || jsonb_build_object(
         'code', ex.code, 'reason', ex.label, 'ha', round((a / 1e4)::numeric, 2),
         'explanation', ex.explanation);
@@ -286,6 +290,7 @@ begin
 
   -- Payments per block -----------------------------------------------------
   for i in 1..n loop
+    shape_tol := greatest(rules.setting('result_simplify_m'), (sqrt(st_area(drawn[i])) / 1000)::numeric);
     payments := '[]';
     costs := '[]';
     not_applied := '[]';
@@ -365,8 +370,12 @@ begin
             'years', r.years,
             'total_gbp', pay_amount * coalesce(r.years, 1),
             'condition', r.design_condition,
-            'qualifying_geometry', case when inside is null or st_isempty(inside) then null
-                                        else rules.to_geojson(inside) end);
+            -- Omitted when (almost) the whole field qualifies: the map then
+            -- uses the field's eligible shape instead of a duplicate.
+            'qualifying_is_whole_field', inside_m2 >= st_area(elig[i]) * 0.995,
+            'qualifying_geometry', case when inside is null or st_isempty(inside)
+                                             or inside_m2 >= st_area(elig[i]) * 0.995 then null
+                                        else rules.to_geojson(inside, shape_tol) end);
         end if;
       end loop;
     end if;
@@ -387,7 +396,8 @@ begin
       'costs_covered', costs,
       'not_applied', not_applied,
       'geometry', jsonb_build_object(
-        'eligible', case when st_isempty(elig[i]) then null else rules.to_geojson(elig[i]) end,
+        'eligible', case when st_isempty(elig[i]) then null
+                         else rules.to_geojson(elig[i], shape_tol) end,
         'removed', removed_shapes[i]));
   end loop;
 

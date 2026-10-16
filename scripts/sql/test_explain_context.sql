@@ -40,10 +40,16 @@ join (values ('flood_risk', '9.00'), ('close_to_settlements', '9.00'), ('recreat
              ('nature_recovery_lower', '9.00'), ('water_quality', '9.00'), ('riparian', '3.00')) e(code, v) on e.code = p ->> 'code';
 insert into checks select 'site 4', 'one-off low = high', j #>> '{income,one_off_total_gbp}', j #>> '{income,one_off_low_gbp}',
   (j #>> '{income,one_off_low_gbp}') = (j #>> '{income,one_off_total_gbp}') from r4;
-insert into checks select 'site 4', 'qualifying shape area = inside_ha (flood)', p ->> 'inside_ha',
+-- Whole field inside the flood area: flagged, no duplicate shape (the map uses the field's shape).
+insert into checks select 'site 4', 'flood: whole field qualifies, no duplicate shape', 'true / null',
+  (p ->> 'qualifying_is_whole_field') || ' / ' || coalesce(p ->> 'qualifying_geometry', 'null'),
+  (p ->> 'qualifying_is_whole_field')::boolean and p -> 'qualifying_geometry' = 'null'::jsonb
+from r4, jsonb_array_elements(j -> 'blocks' -> 0 -> 'payments') p where p ->> 'code' = 'flood_risk';
+-- Partly inside (site 1's riverside strip, 3.03 of 9 ha): shape area matches inside_ha.
+insert into checks select 'site 1', 'riparian: qualifying shape area = inside_ha', p ->> 'inside_ha',
   round((st_area(st_transform(st_geomfromgeojson(p ->> 'qualifying_geometry'), 27700)) / 1e4)::numeric, 2)::text,
   abs(st_area(st_transform(st_geomfromgeojson(p ->> 'qualifying_geometry'), 27700)) / 1e4 - (p ->> 'inside_ha')::numeric) <= 0.02
-from r4, jsonb_array_elements(j -> 'blocks' -> 0 -> 'payments') p where p ->> 'code' = 'flood_risk';
+from r1, jsonb_array_elements(j -> 'blocks' -> 0 -> 'payments') p where p ->> 'code' = 'riparian';
 
 -- 2. The user-test case: ~1,150 ha single block on the edge of Huntingdon ----
 create temporary table big as select st_buffer(st_setsrid(st_point(524500, 272500), 27700), 1695, 'endcap=square') g;

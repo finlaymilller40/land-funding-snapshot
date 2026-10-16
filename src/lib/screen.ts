@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from "geojson";
 import { supabase } from "@/lib/supabase";
 
 // Shape of public.screen_site()'s JSON result.
@@ -8,12 +8,22 @@ export type Payment = {
   kind: "one_off" | "annual";
   rate_gbp: number;
   unit: string;
+  qualification: "touches" | "area_inside" | "whole_site_inside" | "eligible_area";
+  layer_id: string | null;
   basis: string;
   ha: number;
+  /** Plantable land actually inside the target area. */
+  inside_ha: number;
+  inside_pct: number | null;
   amount_gbp: number;
+  /** Paid only on the land inside the target area. */
+  low_amount_gbp: number;
   years: number | null;
   total_gbp: number;
   condition: string;
+  /** True when (almost) the whole field is inside the target area; then the shape below is omitted. */
+  qualifying_is_whole_field: boolean;
+  qualifying_geometry: Polygon | MultiPolygon | null;
 };
 
 export type CostCovered = {
@@ -28,7 +38,7 @@ export type CostCovered = {
 
 export type Removal = { code: string; reason: string; ha: number; explanation: string };
 export type Flag = { code: string; label?: string; ha?: number; explanation: string };
-export type NotApplied = { code: string; payment: string; reason: string; would_be_gbp: number };
+export type NotApplied = { code: string; payment: string; reason: string; would_be_gbp: number; would_be_low_gbp: number };
 
 export type BlockResult = {
   block: number;
@@ -38,6 +48,7 @@ export type BlockResult = {
   removed_ha: number;
   eligible_ha: number;
   meets_block_minimum: boolean;
+  is_large: boolean;
   flags: Flag[];
   payments: Payment[];
   costs_covered: CostCovered[];
@@ -56,22 +67,38 @@ export type ScreenResult = {
     meets_site_minimum: boolean;
     public_access: boolean;
     low_sensitivity_whole_site: boolean;
+    has_large_block: boolean;
+    large_block_ha: number;
   };
   income: {
-    one_off: { code: string; name: string; ha: number; amount_gbp: number }[];
+    one_off: { code: string; name: string; ha: number; inside_ha: number; amount_gbp: number; low_amount_gbp: number }[];
     one_off_total_gbp: number;
+    one_off_low_gbp: number;
     annual_maintenance: { ha: number; per_year_gbp: number; years: number | null; total_gbp: number };
     total_income_gbp: number;
+    total_income_low_gbp: number;
   };
   costs_covered: { planting_costs_up_to_gbp: number; ha: number; rate_gbp_per_ha: number; condition: string };
   blocks: BlockResult[];
   site_flags: Flag[];
+  next_steps: { code: string; title: string; body: string; source_url: string }[];
   limitations: string[];
   rates_checked: string;
   sources: string[];
 };
 
 export type SiteBlock = { name: string; geometry: Polygon | MultiPolygon };
+
+/** One group of shapes from public.site_context(): a payment target area, an exclusion or a flag. */
+export type ContextLayer = {
+  id: string;
+  kind: "target" | "exclusion" | "flag";
+  layer_id: string;
+  label: string;
+  payments: string[] | null;
+  geometry: Geometry | null;
+};
+export type SiteContext = { buffer_m: number; simplified_m: number; layers: ContextLayer[] };
 
 export type FriendlyError = { title: string; detail: string; action: "map" | "retry" };
 
@@ -138,14 +165,18 @@ export function friendlyError(message: string | undefined): FriendlyError {
   );
 }
 
+function toSite(blocks: SiteBlock[]): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: blocks.map((b) => ({ type: "Feature", properties: { name: b.name }, geometry: b.geometry })),
+  };
+}
+
 export async function screenSite(
   blocks: SiteBlock[],
   publicAccess: boolean,
 ): Promise<{ result: ScreenResult } | { error: FriendlyError }> {
-  const site: FeatureCollection = {
-    type: "FeatureCollection",
-    features: blocks.map((b) => ({ type: "Feature", properties: { name: b.name }, geometry: b.geometry })),
-  };
+  const site = toSite(blocks);
   try {
     const { data, error } = await supabase.rpc("screen_site", { site, public_access: publicAccess });
     if (error) return { error: friendlyError(error.message) };
@@ -158,6 +189,17 @@ export async function screenSite(
         action: "retry",
       },
     };
+  }
+}
+
+/** Simplified layer shapes near the user's land, for the map's layer toggles. Null if unavailable. */
+export async function siteContext(blocks: SiteBlock[]): Promise<SiteContext | null> {
+  try {
+    const { data, error } = await supabase.rpc("site_context", { site: toSite(blocks) });
+    if (error) return null;
+    return data as SiteContext;
+  } catch {
+    return null;
   }
 }
 

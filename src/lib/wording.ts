@@ -1,4 +1,4 @@
-import type { Payment } from "@/lib/screen";
+import type { Payment, ScreenResult } from "@/lib/screen";
 import { hectares } from "@/lib/format";
 
 // Plain-English names and reasons for each payment. Scheme terms go in `detail`.
@@ -77,4 +77,140 @@ export const removalColours: Record<string, string> = {
   priority_habitat: "#c9a227",
   deep_peat: "#6b4f3a",
   existing_woodland: "#5b7f8f",
+  developed_land: "#7b7f86",
 };
+
+// Colour per payment, shared by the map's target areas, the payment cards and
+// the money bar so the three link visually. Earthy, distinguishable hues.
+export const paymentColours: Record<string, string> = {
+  nature_recovery_premium: "#3f6b35",
+  nature_recovery_high: "#5f8a45",
+  nature_recovery_lower: "#93b273",
+  flood_risk: "#3e78a0",
+  water_quality: "#6fa8c4",
+  riparian: "#2d6474",
+  close_to_settlements: "#c2873a",
+  recreational_access: "#9c5f2a",
+  low_sensitivity: "#8e86b5",
+  maintenance: "#b8ad8c",
+};
+
+export const flagColours: Record<string, string> = {
+  peat_status: "#7a5a3e",
+  alc_provisional: "#d1b04f",
+};
+
+/** Exclusion code for each exclusion layer (matches rules.ewco_exclusions). */
+const exclusionByLayer: Record<string, string> = {
+  sssi: "sssi",
+  scheduled_monuments: "scheduled_monument",
+  priority_habitat: "priority_habitat",
+  peat_status: "deep_peat",
+  nfi_woodland: "existing_woodland",
+  developed_land: "developed_land",
+};
+
+/** Colour for a site_context() group: its top payment, its exclusion, or its flag layer. */
+export function contextColour(layer: { kind: string; layer_id: string; payments: string[] | null }): string {
+  if (layer.kind === "target" && layer.payments?.length) return paymentColours[layer.payments[0]] ?? "#7d9a6b";
+  if (layer.kind === "exclusion") return removalColours[exclusionByLayer[layer.layer_id]] ?? "#b4664a";
+  return flagColours[layer.layer_id] ?? "#a08a5a";
+}
+
+// Plain phrase for "the target area" of each payment, used in sentences.
+export const targetPhrase: Record<string, string> = {
+  nature_recovery_premium: "a top-priority area for joining up wildlife habitat",
+  nature_recovery_high: "a high-priority area for joining up wildlife habitat",
+  nature_recovery_lower: "a priority area for joining up wildlife habitat",
+  flood_risk: "a flood reduction target area",
+  water_quality: "a cleaner water target area",
+  riparian: "a riverside shade strip",
+  close_to_settlements: "an area near towns that needs more woodland",
+  recreational_access: "an area near towns that needs more woodland",
+  low_sensitivity: "a low-sensitivity area for new woodland",
+};
+
+const shortName: Record<string, string> = {
+  nature_recovery_premium: "nature recovery",
+  nature_recovery_high: "nature recovery",
+  nature_recovery_lower: "nature recovery",
+  flood_risk: "flood reduction",
+  water_quality: "cleaner water",
+  riparian: "riverside shade",
+  close_to_settlements: "woodland near towns",
+  recreational_access: "public access",
+  low_sensitivity: "lower-risk land",
+};
+
+function listJoin(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+function ha1(n: number): string {
+  return `${n.toLocaleString("en-GB", { maximumFractionDigits: n < 10 ? 1 : 0 })} ha`;
+}
+
+/**
+ * One or two plain sentences built only from screen_site()'s numbers:
+ * which payments apply and the main reasons (how much land is inside each
+ * target area, and what was left out).
+ */
+export function plainSummary(result: ScreenResult): string {
+  const { summary } = result;
+  const removed = new Map<string, number>();
+  for (const b of result.blocks) for (const r of b.removed) removed.set(r.reason, (removed.get(r.reason) ?? 0) + r.ha);
+  const leftOut = [...removed].sort((a, b) => b[1] - a[1]);
+  const leftOutTotal = leftOut.reduce((s, [, ha]) => s + ha, 0);
+  const leftOutText =
+    leftOutTotal >= 0.01
+      ? `${ha1(leftOutTotal)} is left out, mainly ${leftOut[0][0].toLowerCase()}.`
+      : "";
+
+  if (!summary.meets_site_minimum) {
+    return `Only ${ha1(summary.eligible_ha)} of the ${ha1(summary.drawn_ha)} you drew could be planted, which is under the 1 ha minimum. ${leftOutText}`.trim();
+  }
+
+  // Combine blocks: per payment, total paid-on and inside area.
+  const per = new Map<string, { inside: number; ha: number; amount: number }>();
+  for (const b of result.blocks)
+    for (const p of b.payments.filter((x) => x.kind === "one_off")) {
+      const cur = per.get(p.code) ?? { inside: 0, ha: 0, amount: 0 };
+      per.set(p.code, { inside: cur.inside + p.inside_ha, ha: cur.ha + p.ha, amount: cur.amount + p.amount_gbp });
+    }
+  const ranked = [...per].sort((a, b) => b[1].amount - a[1].amount);
+  const names = [...new Set(ranked.map(([code]) => shortName[code] ?? code))];
+  const hasUpkeep = result.income.annual_maintenance.per_year_gbp > 0;
+
+  if (ranked.length === 0) {
+    return `${ha1(summary.eligible_ha)} could be planted. It doesn't touch any bonus target area${hasUpkeep ? ", but would get planting costs and yearly upkeep" : ""}. ${leftOutText}`.trim();
+  }
+
+  const first = `${ha1(summary.eligible_ha)} could be planted and earn bonuses for ${listJoin(names)}${hasUpkeep ? ", plus yearly upkeep" : ""}.`;
+  const reasons = ranked
+    .filter(([code]) => code !== "low_sensitivity")
+    .slice(0, 2)
+    .map(([code, v]) => {
+      const pct = v.ha > 0 ? Math.round((100 * v.inside) / summary.eligible_ha) : 0;
+      const phrase = targetPhrase[code] ?? "its target area";
+      if (pct >= 99) return `all of it lies in ${phrase}`;
+      if (v.inside < 0.05) return `it only just touches ${phrase}`;
+      return `${ha1(v.inside)} (${pct}%) lies in ${phrase}`;
+    });
+  const second = reasons.length ? `${reasons[0][0].toUpperCase()}${reasons[0].slice(1)}${reasons[1] ? `, and ${reasons[1]}` : ""}.` : "";
+  return [first, second, leftOutText].filter(Boolean).join(" ");
+}
+
+const tierLabel: Record<string, string> = {
+  nature_recovery_premium: "top priority",
+  nature_recovery_high: "high priority",
+  nature_recovery_lower: "lower priority",
+};
+
+/** Plain label for a map layer: target areas are named after their payments, like the cards. */
+export function contextLabel(layer: { kind: string; label: string; payments: string[] | null }): string {
+  if (layer.kind !== "target" || !layer.payments?.length) return layer.label;
+  const names = [...new Set(layer.payments.map((code) => wordingFor(code).title.replace(/ (bonus|payment)$/, "")))];
+  const tier = tierLabel[layer.payments[0]];
+  return `${names.join(" / ")} area${tier ? ` (${tier})` : ""}`;
+}

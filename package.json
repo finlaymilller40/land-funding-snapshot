@@ -17,6 +17,7 @@
     "@turf/bbox": "^7.4.0",
     "@turf/difference": "^7.4.0",
     "@turf/helpers": "^7.4.0",
+    "@turf/point-on-feature": "^7.4.0",
     "maplibre-gl": "^6.14.0",
     "next": "16.4.0",
     "react": "19.3.0",
