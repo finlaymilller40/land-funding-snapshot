@@ -223,15 +223,21 @@ async function loadLayer(db: Client, layer: Layer, region: Region, bbox: Bbox, r
        layer.notes ?? null, downloadedAt],
     );
     await db.query("delete from layers.features where layer_id = $1 and region_id = $2", [layer.id, region.id]);
-    // Repair geometry, clip to the region (skipping the clip when a feature
-    // is wholly inside), then split into pieces of at most N vertices.
+    // Cut each feature to the region's bounding box (+1 km) first: fast, and
+    // fine on invalid input. Then repair it, clip exactly to the region
+    // (skipping the clip when a feature is wholly inside), and split into
+    // pieces of at most N vertices. Box-clipping first matters for giant
+    // national polygons: one Low Sensitivity v4 feature has 747,475 vertices,
+    // 99.6% outside the region, and repairing it whole took 11 s locally and
+    // killed the session on the free hosted tier.
     const { rowCount } = await db.query(
-      `with r as (select geom from layers.regions where id = $2),
+      `with r as (select geom, st_expand(geom::box2d, 1000) as box from layers.regions where id = $2),
        src as (
          select s.ogc_fid::text as fid,
                 to_jsonb(s) - 'geom' - 'ogc_fid' as attrs,
-                st_collectionextract(st_makevalid(s.geom), 3) as g
-         from layers_staging.${layer.id} s
+                st_collectionextract(st_makevalid(st_clipbybox2d(s.geom, r.box)), 3) as g
+         from layers_staging.${layer.id} s, r
+         where s.geom && r.box
        ),
        clipped as (
          select fid, attrs,
@@ -282,6 +288,10 @@ async function main() {
     // Encrypt remote connections. Supabase's pooler certificate is not from a
     // public CA, so this is "require" (encrypted) rather than full verification.
     ssl: IS_LOCAL_DB ? false : { rejectUnauthorized: false },
+    // If the server side of the connection dies (e.g. a pooled session is
+    // killed), fail instead of waiting forever for a reply that never comes.
+    keepAlive: true,
+    query_timeout: 30 * 60 * 1000,
   });
   await db.connect();
   // Clipping big layers can take minutes on a small server; never time out the loader.

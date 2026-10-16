@@ -554,3 +554,33 @@ records the date, what was decided, why, and the alternatives considered.
   false. Missing settings would have silently disabled limits in the same
   way. Both now fail closed.
 - **Alternatives:** Rely on the layers always being loaded.
+
+### D40. Box-clip before repair; fail on dead connections
+- **Date:** 2026-10-16
+- **What:**
+  - The loader now cuts each feature to the region's bounding box (+1 km)
+    with `ST_ClipByBox2D` *before* `ST_MakeValid`, then clips exactly as
+    before.
+  - The `pg` client uses TCP keep-alive and a 30-minute client-side query
+    timeout.
+- **Why:** The hosted load hung on Low Sensitivity v4 for over an hour: the
+  loader was waiting on an open pooler connection, while the server showed no
+  active query. One v4 feature has 747,475 vertices and 13,758 holes. It
+  covers 432,933 ha, of which only 1,522 ha is in the region.
+  - **Before:** repairing that one polygon whole took 11 s locally. On the
+    free tier's shared CPU and 500 MB RAM, that most likely ended the
+    database session, and the pooler never reported an error.
+  - **After:** box-clipping first cuts it to 18,489 vertices in 0.05 s, and
+    repairing it then takes 0.1 s. The whole v4 layer drops from 13.2 s to
+    3.3 s locally.
+  - **Same result:** a full local reload with the new method matches the
+    previous load exactly on all 13 layers (features, hectares and piece
+    counts), so hosted layers loaded with either method are identical.
+  - **Timeout:** without a client-side timeout, a dead session hangs the
+    loader forever.
+- **Alternatives:** Pro plan compute; simplifying the source polygons
+  (changes the data).
+- **Note:** reloads leave dead space that Postgres reuses but does not return,
+  and Supabase counts it. After several full local reloads the database
+  reports 234 MB rather than 163 MB. Repeated full reloads on the hosted free
+  tier should be followed by a `VACUUM FULL layers.features`.
