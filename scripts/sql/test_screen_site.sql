@@ -170,9 +170,12 @@ select f #>> '{properties,name}' as region, f #>> '{geometry,type}' as type,
        round((st_area(st_transform(st_geomfromgeojson(f ->> 'geometry'), 27700)) / 1e6)::numeric, 1) as km2
 from jsonb_array_elements(public.region_outline() -> 'features') f;
 
-\echo === With no region data loaded, screen_site() must refuse (run in a transaction, rolled back) ===
+\echo === Fail-closed checks (each in a transaction that is rolled back, so nothing changes) ===
+-- No regions: swap in an empty regions table (cheap, unlike deleting the
+-- region, which would cascade to every layer piece).
 begin;
-delete from layers.regions;  -- cascades to layers.features; undone by the rollback below
+alter table layers.regions rename to regions_hidden_for_test;
+create table layers.regions (like layers.regions_hidden_for_test including all);
 do $$
 declare refused boolean := false;
 begin
@@ -182,6 +185,21 @@ begin
     refused := sqlerrm like 'site is outside the area we have data for%';
   end;
   raise notice 'no regions loaded: %', case when refused then 'pass (refused)' else 'FAIL (screened anyway)' end;
+end $$;
+rollback;
+
+-- Missing setting: remove one threshold; screening must stop, not skip the check.
+begin;
+delete from rules.settings where key = 'max_site_drawn_ha';
+do $$
+declare refused boolean := false;
+begin
+  begin
+    perform public.screen_site((select blocks from cases where id = '1 fine'), true);
+  exception when others then
+    refused := sqlerrm like '%rules.settings is incomplete%';
+  end;
+  raise notice 'missing setting: %', case when refused then 'pass (refused)' else 'FAIL (screened anyway)' end;
 end $$;
 rollback;
 

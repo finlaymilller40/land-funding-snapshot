@@ -584,3 +584,88 @@ records the date, what was decided, why, and the alternatives considered.
   and Supabase counts it. After several full local reloads the database
   reports 234 MB rather than 163 MB. Repeated full reloads on the hosted free
   tier should be followed by a `VACUUM FULL layers.features`.
+
+## Security Advisor follow-up
+
+### D41. Why screen_site() and region_outline() are public SECURITY DEFINER functions
+- **Date:** 2026-10-16
+- **What:** Both functions run as their owner (`postgres`) so they can read
+  the private `layers` and `rules` schemas. EXECUTE is revoked from `PUBLIC`
+  and granted only to `anon` and `authenticated`. Both pin `search_path`
+  (`extensions, rules, layers, pg_temp`), so a caller can't substitute their
+  own objects. Both are `STABLE`, so Postgres refuses any write inside them.
+  The Security Advisor warns about each function once per role (4 warnings).
+  These are intended.
+- **What `screen_site()` can return:**
+  - per-block areas;
+  - the reason and area for each removal;
+  - flags with plain-English explanations;
+  - payments with rates and design conditions (all published gov.uk
+    information);
+  - limitations and source links;
+  - the eligible and removed areas as shapes, clipped to the caller's own
+    polygons and simplified to 1 m.
+- **What it can't return:** raw layer features, attributes (beyond the
+  `class` label shown as a reason or flag), anything outside the caller's
+  polygons, other users' data (none is stored), or anything from other
+  schemas.
+- **Input limits** (thresholds in `rules.settings`):
+  - a GeoJSON FeatureCollection of 1–50 Polygon/MultiPolygon features in
+    lon/lat;
+  - each with a non-zero area;
+  - at most 2,000 ha in total;
+  - no overlapping blocks;
+  - the whole site inside a loaded region.
+
+  It refuses if no region is loaded or any setting is missing (D39). The
+  anon role's 3-second statement timeout caps run time; the worst case
+  measured is 260 ms locally and about 0.6 s through the hosted API.
+- **Residual risk:** someone could map layer boundaries inside the region by
+  submitting many small polygons. Accepted: every layer is published open
+  data, and the 3 s timeout and 2,000 ha cap limit the cost of each call.
+- **What `region_outline()` can return:** no input; it returns only the
+  10 m-simplified outline of each loaded region (an ONS open boundary),
+  about 66 KB.
+- **Why:** The website must never read layers directly (Phase 1 brief). These
+  two functions are the only way in.
+- **Alternatives:** An Edge Function holding the service-role key (more
+  moving parts, same exposure); `SECURITY INVOKER` with RLS policies on
+  `layers`, which would make the raw layers readable by anon.
+
+### D42. Revoke EXECUTE on Supabase's rls_auto_enable() from API roles
+- **Date:** 2026-10-16
+- **What:** Migration `20261016103156` revokes EXECUTE on
+  `public.rls_auto_enable()` from `PUBLIC`, `anon` and `authenticated`. It is
+  guarded by an existence check, because only the hosted project (with
+  "automatic RLS" on) has the function.
+- **Why:** It is the event-trigger helper Supabase installs for automatic RLS
+  ([docs](https://supabase.com/docs/guides/database/postgres/event-triggers)).
+  No API role needs to call it, but in `public` it was callable through the
+  Data API (2 Security Advisor warnings).
+- **How it was tested** (locally, in a rolled-back transaction):
+  1. Recreated the helper and its `ddl_command_end` event trigger, granted
+     EXECUTE to anon and authenticated as on hosted, then applied the
+     migration.
+  2. Afterwards anon, authenticated and `PUBLIC` had no EXECUTE, and anon's
+     direct call was refused (42501).
+  3. A test role that is neither a superuser nor allowed to run the helper
+     created tables with `CREATE TABLE` and `CREATE TABLE AS`. Both got RLS
+     enabled automatically, as did a table created by `postgres`.
+
+  Event triggers don't check EXECUTE when they fire. (The local `postgres`
+  role is not a superuser either, like hosted.)
+- **Alternatives:** Leave the warnings; turn off automatic RLS. RLS is
+  already enabled explicitly in every migration, but the setting is a useful
+  safety net.
+
+### Test changes
+- **Date:** 2026-10-16
+- **What:**
+  - `test_screen_site.sql`'s no-region check now swaps in an empty
+    `layers.regions` table inside a rolled-back transaction, instead of
+    deleting the region (which cascaded to all 92,219 pieces and would leave
+    dead space on the free tier).
+  - The missing-setting check is now in the file too.
+  - `scripts/verify_hosted.sh` runs `verify_load.sql` and
+    `test_screen_site.sql` against `DATABASE_URL`, passing it to psql through
+    the environment only, and fails loudly if it can't connect.
