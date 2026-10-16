@@ -13,6 +13,7 @@
 create temporary table expected (layer_id text, pieces int, features int, ha numeric);
 insert into expected values
   ('alc_provisional',               4019,    71, 339587.8),
+  ('developed_land',               59791, 59287,  29897.2),
   ('ewco_flood_risk',              24516,  3991,  78867.2),
   ('ewco_keeping_rivers_cool',      6973,  3716,  28193.3),
   ('ewco_low_sensitivity',          1705,   970,  44291.5),
@@ -49,14 +50,18 @@ select 'region area (ha)' as check, round((extensions.st_area(geom) / 1e4)::nume
        case when abs(extensions.st_area(geom) / 1e4 - 339587.8) <= 0.5 then 'pass' else 'FAIL' end as status
 from layers.regions where id = 'cambridgeshire-and-peterborough'
 union all select 'rules.ewco_rates rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.ewco_rates
-union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 5 then 'pass' else 'FAIL' end from rules.ewco_exclusions
+union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 6 then 'pass' else 'FAIL' end from rules.ewco_exclusions
 union all select 'rules.ewco_flags rows', count(*)::text, case when count(*) = 2 then 'pass' else 'FAIL' end from rules.ewco_flags
-union all select 'rules.settings rows', count(*)::text, case when count(*) = 8 then 'pass' else 'FAIL' end from rules.settings
-union all select 'rules.messages rows', count(*)::text, case when count(*) = 10 then 'pass' else 'FAIL' end from rules.messages
+union all select 'rules.settings rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.settings
+union all select 'rules.messages rows', count(*)::text, case when count(*) = 11 then
+  'pass' else 'FAIL' end from rules.messages
+union all select 'rules.guidance_steps rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.guidance_steps
 union all select 'leftover staging tables', count(*)::text, case when count(*) = 0 then 'pass' else 'FAIL' end
   from pg_tables where schemaname = 'layers_staging'
 union all select 'anon can run screen_site', has_function_privilege('anon', 'public.screen_site(jsonb, boolean)', 'execute')::text,
   case when has_function_privilege('anon', 'public.screen_site(jsonb, boolean)', 'execute') then 'pass' else 'FAIL' end
+union all select 'anon can run site_context', has_function_privilege('anon', 'public.site_context(jsonb)', 'execute')::text,
+  case when has_function_privilege('anon', 'public.site_context(jsonb)', 'execute') then 'pass' else 'FAIL' end
 union all select 'anon can run region_outline', has_function_privilege('anon', 'public.region_outline()', 'execute')::text,
   case when has_function_privilege('anon', 'public.region_outline()', 'execute') then 'pass' else 'FAIL' end
 union all select 'anon blocked from layers', has_schema_privilege('anon', 'layers', 'usage')::text,

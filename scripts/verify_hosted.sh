@@ -2,6 +2,7 @@
 # Verify a database (normally the hosted one) against the local reference:
 #   1. layers, rules and privileges   (scripts/sql/verify_load.sql)
 #   2. screen_site() hand-worked tests (scripts/sql/test_screen_site.sql)
+#   3. ranges, large blocks, next steps, site_context() (scripts/sql/test_explain_context.sql)
 #
 # Usage, with the Session pooler connection string in DATABASE_URL:
 #   read -s "DATABASE_URL?Paste the session pooler connection string: " && export DATABASE_URL
@@ -45,3 +46,7 @@ run_sql scripts/sql/verify_load.sql 2>&1 | grep -v -E '^(CREATE|INSERT)'
 echo
 echo "################ 2. screen_site() tests ################"
 run_sql scripts/sql/test_screen_site.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|BEGIN|ROLLBACK|ALTER)'
+
+echo
+echo "################ 3. Phase 3b: ranges, large blocks, next steps, site_context() ################"
+run_sql scripts/sql/test_explain_context.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|SELECT)'

@@ -52,6 +52,26 @@
     "notes": "NON-COMMERCIAL USE ONLY. class = PSL peat status (Deep Peaty Soils / Shallow Peaty Soils / Soils with Peaty Pockets)."
   },
   {
+    "id": "developed_land",
+    "name": "Developed land (Living England built-up areas and solar farms)",
+    "category": "hard_constraint",
+    "publisher": "Natural England",
+    "service": "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Living_England_2022_2023/FeatureServer/6",
+    "extra_services": [
+      "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Living_England_2022_2023/FeatureServer/7",
+      "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Living_England_2022_2023/FeatureServer/8",
+      "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Living_England_2022_2023/FeatureServer/9"
+    ],
+    "where": "Prmry_H IN ('Built-up Areas and Gardens', 'Solar Farms')",
+    "info_url": "https://www.arcgis.com/home/item.html?id=19aa7b1604434fd7a3b35f2fbfb9c519",
+    "version": "Living England 2022-2023, zones 6-9",
+    "licence": "Open Government Licence v3.0",
+    "licence_url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "attribution": "© Natural England 2024. Contains OS data © Crown copyright and database rights 2023 OS AC0000851168.",
+    "class_field": "prmry_h",
+    "notes": "Only 'Built-up Areas and Gardens' and 'Solar Farms'. Mapped from satellite imagery at roughly 10 m: may miss small sites and includes gardens. Zones 6-9 cover Cambridgeshire and Peterborough; other regions need other zones."
+  },
+  {
     "id": "alc_provisional",
     "name": "Provisional Agricultural Land Classification",
     "category": "soft_constraint",

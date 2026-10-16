@@ -42,6 +42,10 @@ type Layer = {
   category: string;
   publisher: string;
   service: string;
+  /** Further layers of the same dataset (e.g. Living England's zones), merged into one. */
+  extra_services?: string[];
+  /** Attribute filter applied at download, e.g. only some classes. */
+  where?: string;
   info_url?: string;
   version?: string;
   licence: string;
@@ -133,8 +137,8 @@ async function expectedCount(service: string, params: Record<string, string>): P
   return body.count;
 }
 
-/** Download to <rawDir>/<name>.gpkg unless it already exists. */
-function download(rawDir: string, name: string, url: string, refresh: boolean): { at: Date; fresh: boolean } {
+/** Download to <rawDir>/<name>.gpkg unless it already exists. Several URLs are appended into one layer. */
+function download(rawDir: string, name: string, url: string | string[], refresh: boolean): { at: Date; fresh: boolean } {
   const file = path.join(rawDir, `${name}.gpkg`);
   if (existsSync(file) && !refresh) {
     console.log(`  using existing data/raw/.../${name}.gpkg`);
@@ -143,11 +147,18 @@ function download(rawDir: string, name: string, url: string, refresh: boolean): 
   const partial = path.join(rawDir, `${name}.part.gpkg`);
   rmSync(partial, { force: true });
   console.log(`  downloading ${name} ...`);
-  gdal(rawDir, [
-    "ogr2ogr", "-f", "GPKG", `/data/${name}.part.gpkg`,
-    `ESRIJSON:${url}`,
-    "-nln", name, "-nlt", "PROMOTE_TO_MULTI", "-a_srs", "EPSG:27700",
-  ]);
+  const urls = Array.isArray(url) ? url : [url];
+  urls.forEach((u, i) => {
+    gdal(rawDir, [
+      "ogr2ogr", "-f", "GPKG", `/data/${name}.part.gpkg`,
+      `ESRIJSON:${u}`,
+      // Always polygons. Stating the type matters when appending: a layer
+      // created from an empty first response would otherwise have no
+      // geometry column, and later pages would silently lose their shapes.
+      "-nln", name, "-nlt", "MULTIPOLYGON", "-a_srs", "EPSG:27700",
+      ...(i > 0 ? ["-update", "-append"] : []),
+    ]);
+  });
   renameSync(partial, file);
   return { at: new Date(), fresh: true };
 }
@@ -189,15 +200,24 @@ async function loadRegion(db: Client, region: Region, rawDir: string, refresh: b
 async function loadLayer(db: Client, layer: Layer, region: Region, bbox: Bbox, rawDir: string, refresh: boolean) {
   const started = Date.now();
   console.log(`\n${layer.name} (${layer.id})`);
-  const params = envelopeParams(bbox);
-  const url = queryUrl(layer.service, { ...params, resultRecordCount: String(PAGE_SIZE) });
-  const { at: downloadedAt, fresh } = download(rawDir, layer.id, url, refresh);
+  const params = { ...envelopeParams(bbox), ...(layer.where ? { where: layer.where } : {}) };
+  const allServices = [layer.service, ...(layer.extra_services ?? [])];
+  // Skip parts of a multi-layer dataset with nothing in this region.
+  const services =
+    allServices.length === 1
+      ? allServices
+      : (await Promise.all(allServices.map(async (svc) => ((await expectedCount(svc, params)) > 0 ? svc : null)))).filter(
+          (svc): svc is string => svc !== null,
+        );
+  const urls = services.map((svc) => queryUrl(svc, { ...params, resultRecordCount: String(PAGE_SIZE) }));
+  const { at: downloadedAt, fresh } = download(rawDir, layer.id, urls, refresh);
 
   loadToStaging(rawDir, layer.id);
   const staged = Number((await db.query(`select count(*) from layers_staging.${layer.id}`)).rows[0].count);
   // A fresh download must contain every feature the service says matches.
   if (fresh) {
-    const expected = await expectedCount(layer.service, params);
+    let expected = 0;
+    for (const svc of services) expected += await expectedCount(svc, params);
     if (staged !== expected) {
       throw new Error(`${layer.id}: downloaded ${staged} features but the service reports ${expected}`);
     }
