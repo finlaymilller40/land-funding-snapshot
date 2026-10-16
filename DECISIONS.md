@@ -534,3 +534,23 @@ records the date, what was decided, why, and the alternatives considered.
   Note that GitHub turns off scheduled workflows in repos with no commits
   for 60 days.
 - **Alternatives:** Accept pausing; upgrade to Pro; ping weekly.
+
+### D39. screen_site() refuses when region data or settings are missing
+- **Date:** 2026-10-16
+- **What:** Migration `20261016000259` changes `screen_site()` in two ways:
+  - It now raises "outside the area we have data for" when no regions are
+    loaded.
+  - It raises an error if any `rules.settings` value is missing.
+
+  `test_screen_site.sql` now also checks the no-region case, inside a
+  transaction that is rolled back.
+- **Why:** Step 2 checks on the hosted database, after its migrations but
+  before its layers, showed `screen_site()` screening a 9 ha site against
+  empty layers. It reported 9 ha plantable, £54,000 maintenance and £91,800
+  costs covered.
+
+  The cause: the union of zero regions is `NULL`, so "area outside the
+  region > 1 m²" evaluated to `NULL`, and PL/pgSQL's `IF` treats that as
+  false. Missing settings would have silently disabled limits in the same
+  way. Both now fail closed.
+- **Alternatives:** Rely on the layers always being loaded.

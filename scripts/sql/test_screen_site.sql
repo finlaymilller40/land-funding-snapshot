@@ -170,5 +170,20 @@ select f #>> '{properties,name}' as region, f #>> '{geometry,type}' as type,
        round((st_area(st_transform(st_geomfromgeojson(f ->> 'geometry'), 27700)) / 1e6)::numeric, 1) as km2
 from jsonb_array_elements(public.region_outline() -> 'features') f;
 
+\echo === With no region data loaded, screen_site() must refuse (run in a transaction, rolled back) ===
+begin;
+delete from layers.regions;  -- cascades to layers.features; undone by the rollback below
+do $$
+declare refused boolean := false;
+begin
+  begin
+    perform public.screen_site((select blocks from cases where id = '1 fine'), true);
+  exception when sqlstate '22023' then
+    refused := sqlerrm like 'site is outside the area we have data for%';
+  end;
+  raise notice 'no regions loaded: %', case when refused then 'pass (refused)' else 'FAIL (screened anyway)' end;
+end $$;
+rollback;
+
 \echo === Time per call ===
 select id, ms from results order by id;
