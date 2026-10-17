@@ -13,6 +13,13 @@
 --   A = https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco (updated 5 Oct 2026)
 -- Nothing is added that those pages don't state.
 
+-- Every rate in rules.ewco_rates was re-checked against both pages on
+-- 2026-10-17 and is unchanged (nature recovery £1,100 / £2,800 / £3,300, water
+-- quality £500, flood risk £1,000, riparian £2,500, close to settlements £600,
+-- recreational access £3,700, low sensitivity £1,100, maintenance £400 a year
+-- for 15 years, standard cost cap £10,200 per ha).
+update rules.ewco_rates set date_checked = '2026-10-17';
+
 create table rules.payment_groups (
   code text primary key,                 -- matches rules.ewco_rates.exclusive_group
   name text not null
@@ -58,7 +65,7 @@ insert into rules.payment_details (code, benefit, paid_when, source_section, sou
    'Additional contributions: 1. Nature recovery',
    'https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco#nature-recovery', '2026-10-17'),
   ('nature_recovery_lower',
-   'New native woodland here creates new areas of native woodland, helping nature and wildlife recover.',
+   'Planting here creates new native woodland, helping nature and wildlife recover.',
    'Once, with your final planting claim, when the Forestry Commission is satisfied all the planting work is done.',
    'Additional contributions: 1. Nature recovery',
    'https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco#nature-recovery', '2026-10-17'),
