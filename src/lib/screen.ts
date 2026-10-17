@@ -215,7 +215,10 @@ export async function screenSite(
   try {
     const { data, error } = await supabase.rpc("screen_site", { site, public_access: publicAccess });
     if (error) return { error: friendlyError(error.message) };
-    return { result: data as ScreenResult };
+    // Older databases (before migration 20261017130000) don't return these:
+    // default them so the panel still works, just without the breakdowns.
+    const result = data as ScreenResult;
+    return { result: { ...result, not_on_this_land: result.not_on_this_land ?? [], payment_details: result.payment_details ?? {} } };
   } catch {
     return {
       error: {
