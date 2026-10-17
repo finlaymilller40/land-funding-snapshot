@@ -3,6 +3,7 @@
 #   1. layers, rules and privileges   (scripts/sql/verify_load.sql)
 #   2. screen_site() hand-worked tests (scripts/sql/test_screen_site.sql)
 #   3. ranges, large blocks, next steps, site_context() (scripts/sql/test_explain_context.sql)
+#   4. payment details and "not on this land" (scripts/sql/test_payment_details.sql)
 #
 # Usage, with the Session pooler connection string in DATABASE_URL:
 #   read -s "DATABASE_URL?Paste the session pooler connection string: " && export DATABASE_URL
@@ -11,8 +12,8 @@
 # Uses the psql client inside the local Supabase container (start it with
 # `npx supabase start`). DATABASE_URL reaches psql through the environment,
 # never as a command-line argument, so the password stays out of the process
-# list and this script's output. Both SQL files only change data inside
-# transactions that are rolled back.
+# list and this script's output. The SQL files only change data inside
+# transactions that are rolled back, or in temporary tables.
 set -euo pipefail
 
 : "${DATABASE_URL:?Set DATABASE_URL first (see the usage note at the top of this script).}"
@@ -50,3 +51,7 @@ run_sql scripts/sql/test_screen_site.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|
 echo
 echo "################ 3. Phase 3b: ranges, large blocks, next steps, site_context() ################"
 run_sql scripts/sql/test_explain_context.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|SELECT)'
+
+echo
+echo "################ 4. Design pass: payment details, not on this land ################"
+run_sql scripts/sql/test_payment_details.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|SELECT)'
