@@ -156,19 +156,44 @@ function ha1(n: number): string {
  * which payments apply and the main reasons (how much land is inside each
  * target area, and what was left out).
  */
+// How each exclusion reads in the summary (keyed by exclusion code):
+// `because` when it is the only reason, `mainly` when there are several.
+export const leftOutPhrase: Record<string, { because: string; mainly: string }> = {
+  sssi: { because: "it is in an SSSI", mainly: "land in an SSSI" },
+  scheduled_monument: {
+    because: "it is a Scheduled Monument or within 20 m of one",
+    mainly: "a Scheduled Monument and the 20 m around it",
+  },
+  priority_habitat: { because: "it is priority habitat", mainly: "priority habitat" },
+  deep_peat: { because: "it is on deep peat", mainly: "deep peat" },
+  existing_woodland: { because: "it is already woodland", mainly: "existing woodland" },
+  developed_land: {
+    because: "it is developed land (buildings, gardens or solar farms)",
+    mainly: "developed land (buildings, gardens and solar farms)",
+  },
+};
+
 export function plainSummary(result: ScreenResult): string {
   const { summary } = result;
   const removed = new Map<string, number>();
-  for (const b of result.blocks) for (const r of b.removed) removed.set(r.reason, (removed.get(r.reason) ?? 0) + r.ha);
+  for (const b of result.blocks) for (const r of b.removed) removed.set(r.code, (removed.get(r.code) ?? 0) + r.ha);
   const leftOut = [...removed].sort((a, b) => b[1] - a[1]);
   const leftOutTotal = leftOut.reduce((s, [, ha]) => s + ha, 0);
+  const top = leftOut[0]?.[0];
+  const phrase = top ? leftOutPhrase[top] : undefined;
   const leftOutText =
-    leftOutTotal >= 0.01
-      ? `${ha1(leftOutTotal)} is left out, mainly ${leftOut[0][0].toLowerCase()}.`
-      : "";
+    leftOutTotal < 0.01 || !top
+      ? ""
+      : leftOut.length > 1
+        ? `${ha1(leftOutTotal)} is left out, mainly ${phrase?.mainly ?? top.replaceAll("_", " ")}.`
+        : `${ha1(leftOutTotal)} is left out because ${phrase?.because ?? `of ${top.replaceAll("_", " ")}`}.`;
 
   if (!summary.meets_site_minimum) {
-    return `Only ${ha1(summary.eligible_ha)} of the ${ha1(summary.drawn_ha)} you drew could be planted, which is under the 1 ha minimum. ${leftOutText}`.trim();
+    const could =
+      summary.eligible_ha < 0.05
+        ? `None of the ${ha1(summary.drawn_ha)} you drew could be planted.`
+        : `Only ${ha1(summary.eligible_ha)} of the ${ha1(summary.drawn_ha)} you drew could be planted, which is under the 1 ha minimum.`;
+    return `${could} ${leftOutText}`.trim();
   }
 
   // Combine blocks: per payment, total paid-on and inside area.

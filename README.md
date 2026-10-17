@@ -38,7 +38,7 @@ public access, then see the estimate. Headline figures are rounded and
 labelled "about", costs covered are shown separately from income, and a map
 shows what could be planted and why the rest was left out.
 
-**Phase 3b (explanation and interactivity): built locally, 2026-10-16.**
+**Phase 3b (explanation and interactivity): live, 2026-10-17.**
 - **Developed land** is now removed from the plantable area.
 - **Map-based payments** show how much land is inside the target area, and
   touch-based payments give a low–high range.
@@ -47,7 +47,8 @@ shows what could be planted and why the rest was left out.
 - **One map-first workspace:** layer toggles, linked selection, a live
   public-access switch, and re-estimates as you edit fields.
 
-Not yet on the hosted database.
+Live since 2026-10-17 (sites up to 400 ha; hosted database 222 MB, 44% of
+the free tier's 500 MB).
 
 ## Stack
 

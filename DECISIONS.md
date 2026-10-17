@@ -883,3 +883,37 @@ records the date, what was decided, why, and the alternatives considered.
   125–135 KB.
 - **Alternatives:** 500 ha (cold calls near the limit); 300 ha; a 500 m
   surround; Pro compute.
+
+### Phase 3b live
+- **Date:** 2026-10-17
+- **Result:** Live at https://land-funding-snapshot-snd5.vercel.app/check
+  (commit `edddc65`, deployed by Vercel).
+- **Hosted database:**
+  - Migrations `20261016115544` and `20261017114314` applied, and
+    `developed_land` loaded.
+  - `verify_hosted.sh`: 14/14 layers, 91/91 `screen_site()`, 47/47 Phase 3b,
+    both fail-closed checks.
+  - Size: 222 MB, 44% of 500 MB.
+- **Anon API checks:**
+  - The fine site and the 441 ha Huntingdon block match local exactly.
+  - 450 ha is refused by both public functions.
+  - `site_context()` returns labels and shapes only, within 1,000 m.
+  - `parse_site`, `rules`, `layers` and `rls_auto_enable` stay private.
+- **Live UI:**
+  - All five test sites match the database test.
+  - A ~360 ha Huntingdon block shows about £456,300 to £671,200 with the
+    explanation and the large-field note.
+  - "Show on map" and the layer toggles work.
+  - Phone (375 px): bottom sheet at three heights, no sideways scrolling,
+    toolbar clear of the zoom buttons, public-access switch updating in
+    place.
+
+### D52. Summary wording for what was left out
+- **Date:** 2026-10-17
+- **What:** The plain summary names exclusions with phrases keyed by
+  exclusion code, not the lower-cased database label. Each has two forms:
+  "because it is in an SSSI" when it is the only reason, and "mainly land in
+  an SSSI" when there are several. A site with nothing plantable now reads
+  "None of the 9 ha you drew could be planted" (it said "Only 0 ha").
+- **Why:** "mainly site of special scientific interest" read badly. All six
+  exclusions were checked in both forms.
