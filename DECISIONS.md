@@ -1074,3 +1074,24 @@ records the date, what was decided, why, and the alternatives considered.
 - **Browser, phone (375 px):** menu sheet, view switching, drawer at three
   heights (168 px visible at the lowest), map key and credits above it, no
   sideways scrolling on either page.
+
+### D60. Step 2's public-access rate stays hard-coded
+- **Date:** 2026-10-17
+- **What:** The Step 2 question ("can add £3,700 per hectare") keeps the rate
+  in code (`src/components/AccessQuestion.tsx`). **Update it by hand** if
+  `rules.ewco_rates.recreational_access` changes. The results panel already
+  reads the rate from the result.
+- **Why:** No existing public function returns it before an estimate runs:
+  `region_outline()` has no rates, `site_context()` uses rates only to sort
+  its groups, and `screen_site()` returns the rate only after screening, and
+  only when public access is paid or checked. Reading it would need a new
+  public function, which isn't worth it for one line of copy.
+- **Alternatives:** a new public `rules_reference()` function; calling
+  `screen_site()` at Step 2 just to get the rate.
+
+### D61. Open Government Licence statement
+- **Date:** 2026-10-17
+- **What:** The start page footer and the Sources & rates view now include
+  "Contains public sector information licensed under the Open Government
+  Licence v3.0", the standard OGL attribution, alongside the existing
+  per-publisher credits.

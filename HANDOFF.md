@@ -2,7 +2,7 @@
 
 Everything a new session needs to carry on without the previous
 conversation. Read this, then `AGENTS.md`, `README.md` and `DECISIONS.md`
-(59 numbered decisions, D1–D59, plus test-result notes).
+(61 numbered decisions, D1–D61, plus test-result notes).
 
 Last updated: 2026-10-17.
 
@@ -50,7 +50,7 @@ E47000008).
    questions; the user answers like "1a 2b 3 yes". Don't use pop-up question
    dialogs, which the user dismisses.
 2. **Log every decision in `DECISIONS.md`** with date, what, why and
-   alternatives. Continue the numbering from D60.
+   alternatives. Continue the numbering from D62.
 3. **Secret-scan before every commit.** No keys, passwords, `.env*` or
    `data/` files. A minimal check:
    `git diff --cached | grep -nE '(sb_secret_|eyJhbGciOi|gho_|ghp_|SUPABASE_[A-Z_]*KEY=[^<]|postgres(ql)?://[^@]*:[^@]*@)'`.
@@ -267,9 +267,8 @@ committed, but **not pushed**: D53–D59 in `DECISIONS.md` have the detail.
    live site at desktop and phone widths.
 
 **Small things noticed, not changed:**
-- The Step 2 question text still says "£3,700 per hectare" in code (it ran
-  before a result exists). The results panel now reads the rate from the
-  result.
+- The Step 2 question text says "£3,700 per hectare" in code (D60): update
+  it by hand if the recreational access rate changes.
 - An upload made before the map has finished loading is shown as
   "uploaded as several parts" (not reshapeable). Only a fast script hits
   this.

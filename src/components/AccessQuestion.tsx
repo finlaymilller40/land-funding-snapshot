@@ -12,6 +12,8 @@ export function AccessQuestion({ value, onChange, error }: Props) {
   return (
     <fieldset aria-describedby="access-hint" aria-invalid={error || undefined}>
       <legend className="text-xl font-bold">Would you allow public access on foot for 30 years?</legend>
+      {/* £3,700 is hard-coded: no public function returns the rate before an
+          estimate runs. Update by hand if rules.ewco_rates changes (D60). */}
       <p id="access-hint" className="mt-2 text-sm text-muted">
         Free access on foot, with paths, in daylight all year. On eligible land near towns this can add £3,700 per
         hectare. You can change your answer on the results.

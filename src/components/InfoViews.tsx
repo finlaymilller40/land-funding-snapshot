@@ -167,6 +167,7 @@ export function SourcesView({ result, onGoToWorkspace }: { result: ScreenResult 
         <h2 id="data-heading" className="text-base font-semibold">
           Map data
         </h2>
+        <p className="mt-2 text-sm">Contains public sector information licensed under the Open Government Licence v3.0.</p>
         <p className="mt-2 text-sm">
           Contains data from Natural England, Historic England, the Forestry Commission and the Office for National
           Statistics, used under the Open Government Licence v3.0. England Peat Status is used under the Non-Commercial
