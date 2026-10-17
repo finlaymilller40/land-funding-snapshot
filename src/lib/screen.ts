@@ -120,14 +120,7 @@ const knownErrors: { match: RegExp; error: FriendlyError }[] = [
       action: "map",
     },
   },
-  {
-    match: /larger than the .* ha limit/,
-    error: {
-      title: "That's more land than we can check at once",
-      detail: "Please check up to 2,000 hectares at a time.",
-      action: "map",
-    },
-  },
+
   {
     match: /between 1 and .* blocks/,
     error: {
@@ -155,6 +148,15 @@ const knownErrors: { match: RegExp; error: FriendlyError }[] = [
 ];
 
 export function friendlyError(message: string | undefined): FriendlyError {
+  // The size limit lives in rules.settings; show whatever the server says it is.
+  const limit = message?.match(/larger than the ([\d.,]+) ha limit/);
+  if (limit) {
+    return {
+      title: "That's more land than we can check at once",
+      detail: `Please check up to ${Number(limit[1]).toLocaleString("en-GB")} hectares at a time. For a larger holding, check it in parts.`,
+      action: "map",
+    };
+  }
   const known = knownErrors.find((e) => message && e.match.test(message));
   return (
     known?.error ?? {

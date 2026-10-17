@@ -16,6 +16,14 @@ insert into rules.settings (key, value, unit, note) values
   ('context_buffer_m', 1000, 'm', 'site_context() returns layer shapes only within this distance of the drawn land.'),
   ('context_simplify_m', 5, 'm', 'Simplification tolerance for site_context() shapes.');
 
+-- Lower the input limit from 2,000 ha to 500 ha: with the per-payment shapes,
+-- a 2,000 ha built-up block took 1.7 s locally (about 4-5 s on the hosted free
+-- tier, past the 3 s anon timeout). 500 ha is about 0.4 s locally at worst.
+update rules.settings
+set value = 500,
+    note = 'Abuse and speed limit on screen_site() and site_context() input (lowered from 2,000 ha on 2026-10-17).'
+where key = 'max_site_drawn_ha';
+
 -- Developed land exclusion ---------------------------------------------------
 insert into rules.ewco_exclusions
   (code, label, layer_id, qualifying_classes, buffer_m, priority, explanation, source_url, date_checked)

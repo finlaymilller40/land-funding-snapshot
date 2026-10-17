@@ -834,3 +834,26 @@ records the date, what was decided, why, and the alternatives considered.
 - **User-test case:** the 1,150 ha Huntingdon block now loses 761 ha
   (mostly developed land) and shows about £2.07 m to £3.40 m one-off with the
   large-field warning, instead of £7.7 m.
+
+### D50. Site size limit lowered from 2,000 ha to 500 ha
+- **Date:** 2026-10-17
+- **What:** `rules.settings.max_site_drawn_ha` is now 500, set in migration
+  `20261016115544`, for both `screen_site()` and `site_context()`. The
+  website's error message reads the limit from the server's message, so it
+  can't drift. This supersedes the 2,000 ha figure in D22 and D41.
+- **Why:** With per-payment shapes and developed land, the worst case (a
+  built-up 2,000 ha block) took 1.7 s locally. The live function measured
+  2.5–3× slower on the hosted free tier, which would be about 4–5 s, past
+  the anon role's 3-second timeout. The worst case at 497 ha is 0.45 s
+  (`screen_site()`) and 0.63 s (`site_context()`) locally, roughly 1.2–1.8 s
+  hosted. Larger holdings are checked in parts, which the large-field
+  warning already encourages.
+- **Tests:**
+  - The Huntingdon case is now a 441 ha block: 273 ha of developed land
+    removed, low £436,988 against high £647,922, large-field flag.
+  - New checks that both functions refuse a 600 ha site with "site is
+    larger than the 500 ha limit".
+  - The whole migration applies cleanly on top of the pre-3b state (tested
+    in a rolled-back transaction).
+- **Alternatives:** 1,000 ha (occasional cold-start timeouts); a longer anon
+  timeout; Supabase Pro.
