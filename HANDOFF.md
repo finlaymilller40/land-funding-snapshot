@@ -2,7 +2,7 @@
 
 Everything a new session needs to carry on without the previous
 conversation. Read this, then `AGENTS.md`, `README.md` and `DECISIONS.md`
-(52 numbered decisions, D1–D52, plus test-result notes).
+(59 numbered decisions, D1–D59, plus test-result notes).
 
 Last updated: 2026-10-17.
 
@@ -50,7 +50,7 @@ E47000008).
    questions; the user answers like "1a 2b 3 yes". Don't use pop-up question
    dialogs, which the user dismisses.
 2. **Log every decision in `DECISIONS.md`** with date, what, why and
-   alternatives. Continue the numbering from D53.
+   alternatives. Continue the numbering from D60.
 3. **Secret-scan before every commit.** No keys, passwords, `.env*` or
    `data/` files. A minimal check:
    `git diff --cached | grep -nE '(sb_secret_|eyJhbGciOi|gho_|ghp_|SUPABASE_[A-Z_]*KEY=[^<]|postgres(ql)?://[^@]*:[^@]*@)'`.
@@ -86,7 +86,7 @@ E47000008).
 | 2 | EWCO rules engine `public.screen_site()` with rates and rules in a private `rules` schema | Live |
 | 3 | Website: start page and `/check` flow | Live |
 | 3b | Developed land, ranges (low = land inside the target area, high = the "touches" rule), large-block warning, "how to get this", `site_context()`, one map-first workspace, 400 ha limit | **Live** |
-| Design pass | App shell, shadcn/ui, redesigned panel and start page, per-payment breakdown | **Planned and agreed, not started** (see §6) |
+| Design pass | App shell, shadcn/ui, redesigned panel and start page, per-payment breakdown | **Built locally, committed, not pushed** (see §6) |
 
 **Deployed and pushed:** commit **`edddc65`** ("Prepare a 400 ha site limit
 from hosted timings"), deployed by Vercel on 2026-10-17.
@@ -97,8 +97,13 @@ from hosted timings"), deployed by Vercel on 2026-10-17.
   DECISIONS.md.
 - The commit adding this HANDOFF.md and the AGENTS.md update.
 
-Both need the user's OK to push. Pushing triggers a Vercel deploy;
-`3e9a843` changes UI wording only.
+- The design pass (D53–D59): a database commit (migration
+  `20261017130000`, new SQL tests) and a front-end commit.
+
+All need the user's OK to push. Pushing triggers a Vercel deploy. **Order
+matters:** the user runs `npx supabase db push` (and `verify_hosted.sh`)
+*before* the push, because the new website reads `payment_details` and
+`not_on_this_land`, which the hosted `screen_site()` doesn't return yet.
 
 **Hosted database state** (verified 2026-10-17 by the user with
 `verify_hosted.sh`; all pass):
@@ -145,19 +150,23 @@ Both need the user's OK to push. Pushing triggers a Vercel deploy;
   specific layers and `-- --refresh` re-downloads.
 - `npm run dev`, then open http://localhost:3000/check. `predev`/`prebuild`
   copy MapLibre's worker into `public/vendor/`, which git ignores.
-- The Claude desktop in-app browser preview config is
-  `land-funding-dev` in the *old* project's `.claude/launch.json`
-  (`npm --prefix ~/Documents/land-funding-snapshot run dev`). If the map
-  stays blank in the in-app browser, the pane is hidden: take a screenshot
-  to make it render.
+- The Claude desktop in-app browser preview config is `land-funding-dev` in
+  this repo's `.claude/launch.json` (git-ignored). If the map stays blank or
+  half-drawn in the in-app browser, the pane is hidden
+  (`document.hidden` is true, so animation frames only run when a
+  screenshot is taken): take another screenshot before judging the map.
+- Apply new migrations locally with `npx supabase migration up --local`
+  (add `--include-all` once: the local history was missing
+  `20261016103156`, a guarded no-op locally). `db reset` wipes the layers.
 
 **SQL tests** (run against local):
 ```
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 27 pass
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql     # 91/91 + 2 fail-closed
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql # 47/47
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql # 33/33
 ```
-- **Hosted (the user runs it):** `./scripts/verify_hosted.sh` runs all three
+- **Hosted (the user runs it):** `./scripts/verify_hosted.sh` runs all four
   against `DATABASE_URL` (the Session pooler string, set with
   `read -s "DATABASE_URL?…" && export DATABASE_URL`).
 - **Front end:** `npx tsc --noEmit -p . && npx eslint src scripts && npm run build`.
@@ -176,18 +185,24 @@ docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/
   272500 (±950 m) gives a range of £335,144 to £495,851.
 
 **Main code:**
-- **Database migrations:** `supabase/migrations/`. The latest functions are
-  in `20261016115544` (`screen_site`, `site_context`, `parse_site`,
-  `guidance_steps`).
+- **Database migrations:** `supabase/migrations/`. The latest `screen_site`
+  is in `20261017130000` (adds `payment_details`, `not_on_this_land`);
+  `site_context`, `parse_site` and `guidance_steps` are in `20261016115544`.
 - **Loader:** `scripts/load_layers.ts`, configured by `config/layers.json`
   and `config/regions/`.
 - **Front end:**
-  - `src/components/Workspace.tsx`: state, phases, live re-runs;
-  - `WorkspaceMap.tsx`: MapLibre, Terra Draw, overlays;
-  - `ResultsPanel.tsx`;
-  - `LayerControls.tsx`;
+  - `src/components/Workspace.tsx`: state, phases, live re-runs, layout;
+  - `AppShell.tsx`: top bar, sidebar views, phone drawer;
+  - `WorkspaceMap.tsx`: MapLibre, Terra Draw, overlays, toolbar;
+  - `ResultsPanel.tsx`, `PanelSection.tsx`, `PaymentRow.tsx` (the 7-part
+    breakdown), `MapLegend.tsx`, `InfoViews.tsx` (How to get this, Sources &
+    rates, About);
+  - `src/components/ui/`: shadcn/ui components;
   - `src/lib/screen.ts`: types and RPC calls;
-  - `src/lib/wording.ts`: plain-English titles, colours, summary sentences.
+  - `src/lib/wording.ts`: plain-English titles, colours, icons, tags,
+    summary sentences; `src/lib/patterns.ts`: hatch patterns;
+  - start page: `src/app/page.tsx`, `RegionOutline.tsx`,
+    `public/workspace-preview.webp` (`scripts/capture-preview.mjs`).
 
 ---
 
@@ -211,6 +226,13 @@ docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/
   - Null comparisons silently pass `IF`, so everything fails closed.
 - **The `npx supabase migration new` CLI can hang** on its update check.
   Write migration files by hand with a UTC timestamp name.
+- **Tailwind dev loader:** an edit to `src/app/globals.css` was sometimes
+  not picked up by `npm run dev` (the CSS chunk kept its old content).
+  Restart the dev server after editing it.
+- **shadcn CLI 4.22** adds its new `cn` package; this repo uses
+  `src/lib/utils.ts` (clsx + tailwind-merge) instead (D53). After adding a
+  component, change `from "cn"` to `from "@/lib/utils"` and remove the
+  package again.
 - **Hosted free tier:** about 3–4.6× slower than local, plus a cold-start
   penalty. Large unions per request are too slow, so collect pieces
   instead. The giant Low Sensitivity v4 polygon needs a box-clip before
@@ -218,214 +240,41 @@ docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/
 
 ---
 
-## 6. Next: the design pass (agreed, not started)
+## 6. The design pass: built locally (2026-10-17)
 
-**User's answers to the plan:** **1a 2a 3 yes 4a 5a 6 as recommended**, plus
-two additions (§6.6 and §6.7). The goal is to make the workspace look like a
-polished professional nature platform. Darwin's nature platform is the
-reference for structure and density only: don't copy its branding, colours
-or layout. Keep it readable for farmers and agents. Keep the earthy palette,
-plain English, honest ranges, income vs costs separation, and accessibility.
+Everything in the agreed plan (answers **1a 2a 3 yes 4a 5a 6 as
+recommended**) plus the two additions is built, tested locally and
+committed, but **not pushed**: D53–D59 in `DECISIONS.md` have the detail.
 
-### 6.1 Components and libraries
-- **shadcn/ui** (CLI 4.22.0; Radix-based; supports Tailwind 4 and React 19)
-  and **Lucide** icons (`lucide-react` 1.59.0).
-- **Components to add:** Button, Badge, Switch, Collapsible, Checkbox,
-  Select, Input, Tooltip, Sheet, Drawer (vaul 1.1.2), Separator, ScrollArea,
-  Progress and Sidebar (with icon-collapsed mode and a phone Sheet).
-- Copy the components into `src/components/ui`. Map shadcn's CSS variables
-  to our palette tokens; no new colours outside the token list.
-- **Replace the hand-built** buttons, toggles, collapsibles, tags and tabs
-  with these.
+- **Shell and layout (D55):** top bar, sidebar views, map key, 400 px panel
+  with collapsible sections and status tags, phone sheet and three-height
+  vaul drawer.
+- **Design system and colours (D53, D54):** shadcn/ui + Lucide on the
+  palette tokens, one type scale, Okabe–Ito target areas, vermillion hatched
+  exclusions, dotted flags, bold haloed fields.
+- **Not on this land (D56)** and **what each payment entails (D57):** new
+  migration `20261017130000`, new `rules.payment_details`,
+  `rules.payment_items` and `rules.payment_groups` tables, written only from
+  the two gov.uk pages (re-read 2026-10-17), and
+  `scripts/sql/test_payment_details.sql`.
+- **Start page (D58)** with a captured workspace preview and region outline.
 
-### 6.2 Colours
-- **Base:**
-  - paper `#f7f5ef` (page), white (panels), line `#d9d4c7`;
-  - ink `#1f2421` (14.5:1), muted `#55605a` (6.0:1);
-  - primary: moss `#2f4a32`, hover `#243a27`;
-  - focus: ink outline with a yellow `#ffd84d` halo.
-- **Status tags** (all at least 4.5:1):
+**To go live (needs the user):**
+1. `npx supabase db push` (applies `20261017130000`; it was tested in a
+   rolled-back transaction on top of the current hosted state).
+2. `./scripts/verify_hosted.sh` (now four suites; expect 27, 91 + 2, 47, 33).
+3. The user's OK to push to GitHub, which deploys on Vercel. Then check the
+   live site at desktop and phone widths.
 
-  | Tag | Colours |
-  |---|---|
-  | Qualifies | moss on `#e3ecdf` |
-  | Partly | `#6b4a00` on `#fbf1d6` |
-  | Not this land | muted on `#eeece6` |
-  | Left out / issue | `#8f4a31` on `#f6e9e2` |
+**Small things noticed, not changed:**
+- The Step 2 question text still says "£3,700 per hectare" in code (it ran
+  before a result exists). The results panel now reads the rate from the
+  result.
+- An upload made before the map has finished loading is shown as
+  "uploaded as several parts" (not reshapeable). Only a fast script hits
+  this.
 
-- **Map layers** (colour-blind-safe Okabe–Ito):
-  - **Payment target areas:**
-
-    | Area | Colour |
-    |---|---|
-    | Nature recovery | `#009E73`; the 3 tiers differ by fill strength and by solid / dashed / dotted outline |
-    | Flood reduction | `#0072B2` |
-    | Cleaner water | `#56B4E9` |
-    | Riverside shade | `#CC79A7` |
-    | Near towns / public access | `#E69F00` |
-    | Lower-risk land | `#F0E442` |
-
-  - **Exclusions (answer 4a):** one vermillion `#D55E00` family, told apart
-    by **hatch patterns** (generate pattern images for MapLibre
-    `fill-pattern`) and icons.
-  - **Flags:** dotted dark outline, no fill.
-  - **Fields:** bold 3 px ink outline with a white halo; the selected field
-    is 5 px plus an ochre glow.
-  - **Fills:** 25–45% opacity.
-
-### 6.3 Type and spacing (one scale each, used everywhere)
-
-| Token | Size / line height | Use |
-|---|---|---|
-| `text-xs` | 12 / 16 | tags, legend, captions |
-| `text-sm` | 14 / 20 | rows, controls, sidebar |
-| `text-base` | 16 / 24 | panel paragraphs |
-| `text-lg` | 20 / 28 | section headings |
-| `text-xl` | 24 / 32 | panel title |
-| `text-2xl` | 30 / 36 | headline amounts |
-
-Override Tailwind's `--text-*` tokens to match.
-- **Spacing:** a 4 px base, using only 4 · 8 · 12 · 16 · 24 · 32.
-- **Rows:** 36 px with a mouse, 44 px on touch screens (`pointer: coarse`).
-
-### 6.4 Icons (Lucide)
-
-| Group | Item | Icon |
-|---|---|---|
-| Payments | Nature recovery | Sprout |
-| | Flood reduction | Waves |
-| | Cleaner water | Droplet |
-| | Riverside shade | TreeDeciduous |
-| | Woodland near towns | Building2 |
-| | Public access | Footprints |
-| | Lower-risk land | ShieldCheck |
-| | Upkeep | CalendarClock |
-| | Costs covered | Receipt |
-| Exclusions | SSSI | Bird |
-| | Scheduled Monument | Landmark |
-| | Priority habitat | Flower2 |
-| | Deep peat | Layers |
-| | Existing woodland | Trees |
-| | Developed land | Building |
-| Flags | Grade 1–2 farmland | Wheat |
-
-### 6.5 Layout
-**Desktop shell:**
-```
-┌ top bar 48px: ▣ Land Funding Snapshot · Region [Cambridgeshire & Peterborough ▾] · [Postcode… 🔍] · Prototype · ? ┐
-├ sidebar 224px (56 collapsed) ┬ map (flexible) ─────────────────────────┬ detail panel 400px ───────────────┤
-│ ⌂ Workspace                  │ [Draw][Edit][Select] [Aerial]   [+][−] │ YOUR ESTIMATE        Updating…    │
-│ ▤ My fields                  │                                         │ 9.0 ha drawn · 9.0 plantable      │
-│ ☰ How to get this            │   fields bold outline, plantable /      │ ▾ Summary            [Estimate]   │
-│ ⓘ Sources & rates            │   left-out fills, selected target       │ ▾ Where the money    [15 yrs]     │
-│ ? About                      │   hatched                               │ ▾ Payments  [4 qualify·1 partly]  │
-│ « collapse                   │ ┌ Legend (docked, collapsible) ┐        │ ▾ Left out           [4.2 ha]     │
-│                              │ │ toggles + icons by group      │        │ ▸ Worth checking     [1]          │
-│                              │ └───────────────────────────────┘        │ ▸ Fields             [2]          │
-└──────────────────────────────┴─────────────────────────────────────────┴───────────────────────────────────┘
-```
-- **Sidebar (1a, 2a):** light (paper background, moss highlight on the
-  active item). Each item **switches the right panel's view** and the map
-  stays visible:
-  - **Workspace:** the steps, then the estimate.
-  - **My fields:** list, rename, delete, upload, show on map.
-  - **How to get this:** the gov.uk steps.
-  - **Sources & rates:** rates table with date checked and links, data
-    credits, limitations.
-  - **About.**
-- **Top bar:** the tool name, a region Select (one region for now), the
-  postcode search (moved here), a Prototype tag and help.
-- **Detail panel:** collapsible sections, each with a status tag. The
-  public-access Switch row sits in Summary. Stacked "where the money comes
-  from" bar (high figures over 15 years, excluding costs covered). No extra
-  per-payment chart (answer 6).
-- **Legend:** docked bottom-left of the map, collapsible, with toggles and
-  icons grouped as Your estimate / Payment areas / Can't plant / Worth
-  checking.
-- **Payment rows:**
-  - icon · name · amount or range · small inside-% bar (Progress) · status
-    tag · chevron;
-  - they expand in place (Collapsible), as in §6.7;
-  - a "Not on this land" group lists bonuses checked but not applying.
-- **Tag rules:**
-  - **Qualifies:** at least 99% of the plantable land is inside the target
-    area.
-  - **Partly:** touches but less is inside, so a range applies.
-  - **Not this land:** doesn't touch.
-  - Upkeep is always "Qualifies" when the site meets the minimum.
-- **Database change for "Not this land" (answer 3: yes):** `screen_site()`
-  must also return the map-based bonuses that were checked but don't apply.
-  - List the nature recovery tiers once, as a group, if none touch.
-  - List recreational access as not-this-land when its prerequisite (close
-    to settlements) doesn't touch.
-  - This needs a new migration and the user's hosted `db push` before going
-    live, plus new SQL tests.
-- **Phone (5a):** the top bar has a menu button opening the sidebar as a
-  Sheet, and a search icon. The map is full screen. The detail panel uses
-  **shadcn Drawer (vaul)** with three snap points (peek, half, full) and a
-  visible handle button for keyboard and screen-reader users.
-
-### 6.6 Addition: redesign the start page as a professional front door
-It's the first thing reviewers see. It needs:
-- a clear one-line value statement;
-- a **preview image or screenshot of the workspace**. One option: take a
-  clean desktop screenshot of the redesigned workspace on a test site and
-  save it into `public/`, keeping map attribution visible or credited;
-- how it works in three steps;
-- the region covered;
-- a clear **"Check your land"** button.
-
-Use the new design system.
-
-### 6.7 Addition: per-payment "what it entails" breakdown
-When a payment row is expanded, show these sections in plain English, each
-short:
-1. **What it pays:** the rate, how it's calculated for their land, and
-   whether it's one-off or yearly. Derived from `rules.ewco_rates` plus the
-   result.
-2. **Why the government pays it:** one sentence on the public benefit.
-3. **Why your land qualifies:** which target area it touches, how much is
-   inside, and "Show on map". From the result.
-4. **What you'd have to do:** a **checklist**, one line each, of the design
-   requirements (species mix, stocking density, open space, shade, public
-   access, and so on).
-5. **What you're committing to:** duration (15-year maintenance, 30-year
-   access) and that the land becomes permanently non-agricultural.
-6. **When it's paid:** for example after the final capital claim, or each
-   autumn.
-7. **Source:** the gov.uk section it comes from and the date checked.
-
-**Storage:** sections 2, 4, 5, 6 and 7 go in database tables with source
-links (for example a `rules.payment_details` table plus a requirements
-checklist table, keyed by rate code, with `source_url`, `source_section` and
-`date_checked`), returned by `screen_site()` for the codes in the result.
-They must be updatable without code changes.
-
-**Content rule:** write only from the gov.uk EWCO guidance
-(https://www.gov.uk/guidance/england-woodland-creation-offer) and the
-Additional contributions page
-(https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco).
-**Don't invent requirements.** If something isn't stated, leave it out.
-- **Not yet done:** an attempt to re-fetch the Additional contributions page
-  for verbatim wording was stopped by the user before it ran.
-- **Already known from earlier fetches** (summarised in D20, the
-  `design_condition` texts in `rules.ewco_rates`, and
-  `rules.guidance_steps`): requirements per contribution, timing
-  (additional contributions are one-off, after the capital work is
-  completed satisfactorily; upkeep each autumn for 15 years, claimed again
-  in years 6 and 11; the low sensitivity payment after all other work is
-  claimed), 30-year public access, and non-agricultural land registration
-  with the RPA.
-- **Re-check the pages** before writing the tables.
-
-**Process for the design pass:** build locally. Keep all SQL and front-end
-tests passing and add tests for the new database output. Check desktop and
-phone in a browser. Log decisions (D53 onwards). **Don't push** until the
-user says.
-
----
-
-## 7. Open items after the design pass
+## 7. Open items
 - **Commit `3e9a843`** (and the handoff commit) is local; push only with the
   user's OK.
 - **Phase 4: AI explanations.** AI explains results only; it never decides

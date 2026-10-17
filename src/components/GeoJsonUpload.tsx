@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Upload } from "lucide-react";
+import { useId, useState } from "react";
 import { parseUpload, type UploadedBlock } from "@/lib/geo";
 
 type Props = { onBlocks(blocks: UploadedBlock[]): void };
@@ -8,6 +9,7 @@ type Props = { onBlocks(blocks: UploadedBlock[]): void };
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export function GeoJsonUpload({ onBlocks }: Props) {
+  const id = useId();
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -29,29 +31,29 @@ export function GeoJsonUpload({ onBlocks }: Props) {
   }
 
   return (
-    <details className="rounded border border-line bg-white p-3">
-      <summary className="cursor-pointer font-semibold">Or upload a GeoJSON file</summary>
-      <p className="mt-2 text-sm text-muted">
-        One shape per field, in longitude and latitude (WGS84). Most mapping tools can export this.
-      </p>
-      <label htmlFor="upload" className="mt-3 block font-semibold">
-        Choose a file
+    <div>
+      <label
+        htmlFor={id}
+        className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-line bg-white px-3 py-2 text-sm hover:border-moss hover:bg-moss-tint coarse:min-h-11 [&:has(+input:focus-visible)]:outline-3 [&:has(+input:focus-visible)]:outline-ink"
+      >
+        <Upload aria-hidden="true" className="size-4 text-muted" />
+        <span>
+          <span className="font-semibold">Upload a GeoJSON file</span>
+          <span className="block text-xs text-muted">One shape per field, in longitude and latitude (WGS84).</span>
+        </span>
       </label>
       <input
-        id="upload"
+        id={id}
         type="file"
         accept=".geojson,.json,application/geo+json,application/json"
         onChange={handleFile}
-        className="mt-1 block w-full text-sm file:mr-3 file:min-h-11 file:rounded file:border-0 file:bg-moss file:px-4 file:font-semibold file:text-white"
+        className="sr-only"
       />
       {message && (
-        <p
-          role={message.error ? "alert" : "status"}
-          className={`mt-2 text-sm ${message.error ? "font-semibold text-clay-text" : "text-muted"}`}
-        >
+        <p role={message.error ? "alert" : "status"} className={`mt-2 text-xs ${message.error ? "font-semibold text-clay-text" : "text-muted"}`}>
           {message.text}
         </p>
       )}
-    </details>
+    </div>
   );
 }

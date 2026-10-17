@@ -37,6 +37,7 @@ there.
   - `scripts/sql/verify_load.sql`;
   - `scripts/sql/test_screen_site.sql`;
   - `scripts/sql/test_explain_context.sql`;
+  - `scripts/sql/test_payment_details.sql`;
   - `npx tsc --noEmit -p .`, `npx eslint src scripts`, `npm run build`.
 
   Check UI changes in a browser at desktop and phone widths.
@@ -45,7 +46,11 @@ there.
 - `supabase/migrations/`: schema, rules data, the public functions.
 - `scripts/load_layers.ts`: loads open data. Configured by
   `config/layers.json` and `config/regions/`.
-- `src/components/Workspace.tsx` (state and flow), `WorkspaceMap.tsx`
-  (MapLibre and Terra Draw), `ResultsPanel.tsx`, `LayerControls.tsx`.
+- `src/components/Workspace.tsx` (state and flow), `AppShell.tsx` (top bar,
+  sidebar views, phone drawer), `WorkspaceMap.tsx` (MapLibre and Terra
+  Draw), `ResultsPanel.tsx` and `PaymentRow.tsx` (detail panel),
+  `MapLegend.tsx`, `InfoViews.tsx`. shadcn/ui components live in
+  `src/components/ui`; class merging is `cn` from `src/lib/utils.ts`.
 - `src/lib/screen.ts` (result types and RPC calls), `src/lib/wording.ts`
-  (plain-English titles, colours, summary).
+  (plain-English titles, colours, icons, status tags, summary),
+  `src/lib/patterns.ts` (hatch patterns for land that can't be planted).

@@ -3,14 +3,19 @@
 import dynamic from "next/dynamic";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, PenLine } from "lucide-react";
 import { AccessQuestion } from "@/components/AccessQuestion";
+import { AppSidebar, PhoneDrawer, TopBar, VIEWS, type Snap, type View } from "@/components/AppShell";
 import { BlockList } from "@/components/BlockList";
 import { ErrorPanel } from "@/components/ErrorPanel";
 import { GeoJsonUpload } from "@/components/GeoJsonUpload";
-import { LayerControls } from "@/components/LayerControls";
-import { PostcodeSearch } from "@/components/PostcodeSearch";
+import { AboutView, GuideView, SourcesView } from "@/components/InfoViews";
+import { MapLegend } from "@/components/MapLegend";
 import { ResultsPanel } from "@/components/ResultsPanel";
+import { Button } from "@/components/ui/button";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import type { WorkspaceMapHandle } from "@/components/WorkspaceMap";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { hectares } from "@/lib/format";
 import { areaHa, haOutside, OUTSIDE_TOLERANCE_HA, type UploadedBlock } from "@/lib/geo";
 import {
@@ -29,7 +34,6 @@ const WorkspaceMap = dynamic(() => import("@/components/WorkspaceMap").then((m) 
 });
 
 type Phase = "draw" | "question" | "results";
-type Sheet = "peek" | "half" | "full";
 type Block = { id: string; name: string; geometry: Polygon | MultiPolygon; editable: boolean };
 
 const MIN_SITE_HA = 1;
@@ -42,12 +46,6 @@ function nextFieldName(taken: string[]): string {
   while (used.has(`Field ${n}`)) n += 1;
   return `Field ${n}`;
 }
-
-const sheetHeight: Record<Sheet, string> = {
-  peek: "h-40",
-  half: "h-[55dvh]",
-  full: "h-[calc(100dvh-4.5rem)]",
-};
 
 export function Workspace() {
   const [phase, setPhaseState] = useState<Phase>("draw");
@@ -64,7 +62,9 @@ export function Workspace() {
   const [shown, setShown] = useState<Record<string, boolean>>({ plantable: true, "left-out": true });
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [selectedBlock, setSelectedBlock] = useState<number | null>(null);
-  const [sheet, setSheet] = useState<Sheet>("half");
+  const [sheet, setSheet] = useState<Snap>("half");
+  const [view, setViewState] = useState<View>("workspace");
+  const isMobile = useIsMobile();
   const mapHandle = useRef<WorkspaceMapHandle>(null);
   // Ids being added by an upload: the drawing tool reports them before we list them.
   const uploading = useRef(new Set<string>());
@@ -76,6 +76,7 @@ export function Workspace() {
   // Browser back/forward moves between phases.
   const setPhase = useCallback((next: Phase, push = true) => {
     setPhaseState(next);
+    setViewState("workspace");
     if (push) window.history.pushState({ phase: next }, "");
     panelRef.current?.scrollTo({ top: 0 });
   }, []);
@@ -216,6 +217,7 @@ export function Workspace() {
     setPhase("results");
     setSheet("half");
     mapHandle.current?.setTool("move");
+    mapHandle.current?.fitTo(blocks.map((b) => b.geometry));
     run(blocks, access);
   }
 
@@ -244,6 +246,29 @@ export function Workspace() {
       const group = context.layers.find((l) => l.payments?.includes(code));
       if (group) setShown((s) => ({ ...s, [group.id]: true }));
     }
+    if (code && isMobile) setSheet("peek");
+  }
+
+  // Target areas near the land for bonuses that aren't on it.
+  const nearbyTargets = (codes: string[]) =>
+    (context?.layers ?? []).filter((l) => l.kind === "target" && l.geometry && l.payments?.some((p) => codes.includes(p)));
+  function showTargetArea(codes: string[]) {
+    const ids = nearbyTargets(codes).map((l) => l.id);
+    setShown((s) => ({ ...s, ...Object.fromEntries(ids.map((id) => [id, true])) }));
+    if (isMobile) setSheet("peek");
+  }
+
+  function setView(next: View) {
+    setViewState(next);
+    panelRef.current?.scrollTo({ top: 0 });
+    if (isMobile) setSheet((s) => (s === "peek" ? "half" : s));
+    // Move focus to the new view's heading so screen readers announce it.
+    window.setTimeout(() => panelRef.current?.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true }), 50);
+  }
+
+  function startDrawing() {
+    mapHandle.current?.setTool("draw");
+    if (isMobile) setSheet("peek");
   }
 
   function selectBlock(index: number | null, fromMap = false) {
@@ -251,11 +276,17 @@ export function Workspace() {
     if (index === null) return;
     if (phase !== "results" && fromMap) return;
     if (fromMap) {
+      setViewState("workspace");
+      // Open the Fields section if it is closed.
+      window.setTimeout(() => {
+        const trigger = document.querySelector<HTMLButtonElement>("#fields-heading button[aria-expanded='false']");
+        trigger?.click();
+      }, 0);
       setSheet((s) => (s === "peek" ? "half" : s));
       // Scroll only the panel (scrollIntoView would also scroll the page and move the map).
       window.setTimeout(() => {
         const panel = panelRef.current;
-        const target = document.getElementById("fields-heading");
+        const target = document.getElementById("fields-heading")?.parentElement;
         if (!panel || !target) return;
         const top = target.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - 12;
         panel.scrollTo({ top, behavior: "smooth" });
@@ -266,164 +297,187 @@ export function Workspace() {
   }
 
   const resultMatchesBlocks = result !== null && result.blocks.length === blocks.length;
+  const renameBlock = (id: string, name: string) => setBlocks((cur) => cur.map((b) => (b.id === id ? { ...b, name } : b)));
+  const showBlock = (id: string) => {
+    const b = blocks.find((x) => x.id === id);
+    if (b) mapHandle.current?.fitTo([b.geometry]);
+    if (isMobile) setSheet("peek");
+  };
+  const fieldList = <BlockList blocks={listed} onRename={renameBlock} onDelete={deleteBlock} onShow={showBlock} />;
+
+  const workspaceView = (
+    <>
+      {phase === "draw" && (
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-semibold tracking-wide text-muted uppercase">Step 1 of 2</p>
+            <h1 tabIndex={-1} className="mt-1 text-xl font-bold">
+              Show us your land
+            </h1>
+            <p className="mt-1 text-sm">
+              Find your land with the postcode search, then draw each field separately: payments are worked out field by
+              field. The dashed green line shows the area we cover.
+            </p>
+          </div>
+          <Button variant="outline" onClick={startDrawing} className="w-full justify-start">
+            <PenLine aria-hidden="true" />
+            Draw a field on the map
+          </Button>
+          <GeoJsonUpload onBlocks={addUploaded} />
+          {region === null && <p className="text-xs text-muted">Loading the outline of the area we cover…</p>}
+          {fieldList}
+          {blocks.length > 0 && totalHa < MIN_SITE_HA && (
+            <p className="rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn-text">
+              You&apos;ve drawn {hectares(totalHa)}. Woodland creation payments need at least 1 hectare that could be
+              planted, so you may want to add more land.
+            </p>
+          )}
+          {mapError && (
+            <p className="text-sm font-semibold text-clay-text" role="alert">
+              {mapError}
+            </p>
+          )}
+          <Button size="lg" onClick={continueToQuestion} className="w-full">
+            Continue
+            <ArrowRight aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+
+      {phase === "question" && (
+        <div className="space-y-5">
+          <p className="text-xs font-semibold tracking-wide text-muted uppercase">Step 2 of 2</p>
+          <AccessQuestion
+            value={access}
+            error={accessError}
+            onChange={(v) => {
+              setAccess(v);
+              setAccessError(false);
+            }}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="lg" onClick={() => setPhase("draw")}>
+              <ArrowLeft aria-hidden="true" />
+              Back to fields
+            </Button>
+            <Button size="lg" onClick={seeEstimate} className="flex-1">
+              See my estimate
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {phase === "results" && (
+        <div className="space-y-4">
+          {error && <ErrorPanel error={error} onBackToMap={() => setPhase("draw")} onRetry={() => run(blocks, access ?? false)} />}
+          {!error && !result && loading && (
+            <p role="status" className="text-sm">
+              Working out your estimate…
+            </p>
+          )}
+          {result && (
+            <div className={error ? "opacity-50" : ""}>
+              <ResultsPanel
+                result={result}
+                updating={loading}
+                publicAccess={access ?? false}
+                onPublicAccessChange={(v) => setAccess(v)}
+                selectedPayment={selectedPayment}
+                onSelectPayment={selectPayment}
+                onShowTargetArea={showTargetArea}
+                canShowTargetArea={(codes) => nearbyTargets(codes).length > 0}
+                selectedBlock={selectedBlock}
+                onSelectBlock={(i) => selectBlock(i)}
+                onStartAgain={startAgain}
+                onOpenSources={() => setView("sources")}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const fieldsView = (
+    <div className="space-y-4">
+      <header>
+        <h1 tabIndex={-1} className="text-xl font-bold">
+          My fields
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          {phase === "results"
+            ? "Rename, add or delete fields. The estimate updates a second after you stop."
+            : "Rename, add or delete fields, then continue in the workspace."}
+        </p>
+      </header>
+      <Button variant="outline" onClick={startDrawing} className="w-full justify-start">
+        <PenLine aria-hidden="true" />
+        Draw a field on the map
+      </Button>
+      <GeoJsonUpload onBlocks={addUploaded} />
+      {fieldList}
+    </div>
+  );
+
+  const panelResult = phase === "results" ? result : null;
+  const panel =
+    view === "workspace" ? workspaceView
+    : view === "fields" ? fieldsView
+    : view === "guide" ? <GuideView result={panelResult} onGoToWorkspace={() => setView("workspace")} />
+    : view === "sources" ? <SourcesView result={panelResult} onGoToWorkspace={() => setView("workspace")} />
+    : <AboutView />;
+  const viewLabel = VIEWS.find((v) => v.id === view)?.label ?? "Panel";
 
   return (
-    <div className="relative lg:grid lg:h-[calc(100dvh-3.75rem)] lg:grid-cols-[minmax(0,1fr)_minmax(380px,42%)]">
-      {/* Map: full screen behind the sheet on phones, left column on desktop. */}
-      <div className="relative h-[calc(100dvh-3.75rem)] lg:h-full">
-        <WorkspaceMap
-          handleRef={mapHandle}
-          region={region}
-          blocks={listed.map((b) => ({ ...b, outside: b.outsideHa > 0 }))}
-          onPolygonsChange={onPolygonsChange}
-          result={phase === "results" && resultMatchesBlocks ? result : null}
-          context={phase === "results" ? context : null}
-          shown={shown}
-          highlightPayment={phase === "results" ? selectedPayment : null}
-          selectedBlock={phase === "results" ? selectedBlock : null}
-          onBlockClick={(i) => selectBlock(i, true)}
-        />
-        <div className="pointer-events-none absolute right-2 top-28 flex flex-col items-end gap-2 lg:top-24">
-          <LayerControls
-            context={context}
-            contextState={contextState}
-            hasResult={phase === "results" && result !== null}
+    <SidebarProvider className="h-dvh min-h-0 flex-col overflow-hidden">
+      <TopBar isMobile={isMobile} onFound={(lon, lat) => mapHandle.current?.flyTo(lon, lat)} onHelp={() => setView("about")} />
+      <div className="flex min-h-0 flex-1">
+        <AppSidebar view={view} onView={setView} />
+        <main id="main" className="relative min-w-0 flex-1" aria-label="Map">
+          <WorkspaceMap
+            handleRef={mapHandle}
+            region={region}
+            blocks={listed.map((b) => ({ ...b, outside: b.outsideHa > 0 }))}
+            onPolygonsChange={onPolygonsChange}
+            result={phase === "results" && resultMatchesBlocks ? result : null}
+            context={phase === "results" ? context : null}
             shown={shown}
-            onChange={(id, on) => setShown((s) => ({ ...s, [id]: on }))}
+            highlightPayment={phase === "results" ? selectedPayment : null}
+            selectedBlock={phase === "results" ? selectedBlock : null}
+            onBlockClick={(i) => selectBlock(i, true)}
           />
-        </div>
+          <div
+            className={
+              isMobile
+                ? "pointer-events-none absolute bottom-[calc(var(--drawer-peek)+0.5rem)] left-3 z-10"
+                : "pointer-events-none absolute bottom-3 left-3 z-10"
+            }
+          >
+            <MapLegend
+              key={isMobile ? "phone" : "desktop"}
+              context={context}
+              contextState={contextState}
+              hasResult={phase === "results" && result !== null}
+              shown={shown}
+              onChange={(id, on) => setShown((s) => ({ ...s, [id]: on }))}
+              defaultOpen={!isMobile}
+            />
+          </div>
+        </main>
+        {!isMobile && (
+          <aside aria-label={viewLabel} className="hidden w-[400px] shrink-0 flex-col border-l border-line bg-white lg:flex">
+            <div ref={panelRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+              {panel}
+            </div>
+          </aside>
+        )}
       </div>
-
-      {/* Panel: bottom sheet on phones, right column on desktop. */}
-      <aside
-        aria-label="Your land and estimate"
-        className={`fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl border-t border-line bg-paper shadow-[0_-6px_24px_rgba(0,0,0,0.18)] ${sheetHeight[sheet]} lg:static lg:z-auto lg:h-full lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none`}
-      >
-        <button
-          type="button"
-          onClick={() => setSheet((s) => (s === "peek" ? "half" : s === "half" ? "full" : "peek"))}
-          aria-expanded={sheet !== "peek"}
-          aria-label={sheet === "full" ? "Shrink panel" : "Expand panel"}
-          className="flex min-h-11 w-full shrink-0 flex-col items-center justify-center gap-1 lg:hidden"
-        >
-          <span className="h-1.5 w-12 rounded-full bg-muted/60" />
-          <span className="text-xs text-muted">{sheet === "full" ? "Show more map" : "Show more"}</span>
-        </button>
-        <div ref={panelRef} className="flex-1 overflow-y-auto px-4 pb-8 lg:px-6 lg:py-6">
-          {phase === "draw" && (
-            <div className="space-y-5">
-              <div>
-                <p className="font-semibold text-muted">Step 1 of 2</p>
-                <h1 className="text-2xl font-bold text-moss">Show us your land</h1>
-                <p className="mt-1 text-sm">
-                  Draw each field separately: payments are worked out field by field. The dashed green line on the map
-                  shows the area we cover.
-                </p>
-              </div>
-              <PostcodeSearch onFound={(lon, lat) => mapHandle.current?.flyTo(lon, lat)} />
-              {region === null && <p className="text-sm text-muted">Loading the outline of the area we cover…</p>}
-              <GeoJsonUpload onBlocks={addUploaded} />
-              <BlockList
-                blocks={listed}
-                onRename={(id, name) => setBlocks((cur) => cur.map((b) => (b.id === id ? { ...b, name } : b)))}
-                onDelete={deleteBlock}
-                onShow={(id) => {
-                  const b = blocks.find((x) => x.id === id);
-                  if (b) mapHandle.current?.fitTo([b.geometry]);
-                }}
-              />
-              {blocks.length > 0 && totalHa < MIN_SITE_HA && (
-                <p className="rounded bg-warn-bg px-4 py-3 text-warn-text">
-                  You&apos;ve drawn {hectares(totalHa)}. Woodland creation payments need at least 1 hectare that could be
-                  planted, so you may want to add more land.
-                </p>
-              )}
-              {mapError && (
-                <p className="font-semibold text-clay-text" role="alert">
-                  {mapError}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={continueToQuestion}
-                className="min-h-12 rounded bg-moss px-6 text-lg font-semibold text-white shadow-[0_2px_0_#16241a] hover:bg-moss-dark"
-              >
-                Continue
-              </button>
-            </div>
-          )}
-
-          {phase === "question" && (
-            <div className="space-y-6">
-              <p className="font-semibold text-muted">Step 2 of 2</p>
-              <AccessQuestion
-                value={access}
-                error={accessError}
-                onChange={(v) => {
-                  setAccess(v);
-                  setAccessError(false);
-                }}
-              />
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPhase("draw")}
-                  className="min-h-12 rounded border-2 border-moss bg-white px-5 font-semibold text-moss hover:bg-moss-tint"
-                >
-                  Back to fields
-                </button>
-                <button
-                  type="button"
-                  onClick={seeEstimate}
-                  className="min-h-12 rounded bg-moss px-6 text-lg font-semibold text-white shadow-[0_2px_0_#16241a] hover:bg-moss-dark"
-                >
-                  See my estimate
-                </button>
-              </div>
-            </div>
-          )}
-
-          {phase === "results" && (
-            <div className="space-y-4">
-              {error && <ErrorPanel error={error} onBackToMap={() => setPhase("draw")} onRetry={() => run(blocks, access ?? false)} />}
-              {!error && !result && loading && <p role="status">Working out your estimate…</p>}
-              {result && (
-                <div className={error ? "opacity-50" : ""}>
-                  <ResultsPanel
-                    result={result}
-                    updating={loading}
-                    publicAccess={access ?? false}
-                    onPublicAccessChange={(v) => setAccess(v)}
-                    selectedPayment={selectedPayment}
-                    onSelectPayment={selectPayment}
-                    selectedBlock={selectedBlock}
-                    onSelectBlock={(i) => selectBlock(i)}
-                    onStartAgain={startAgain}
-                  />
-                </div>
-              )}
-              <details className="rounded border border-line bg-white p-3">
-                <summary className="cursor-pointer font-semibold">Rename, add or delete fields</summary>
-                <p className="mt-2 text-sm text-muted">
-                  Use <strong>Draw a field</strong> or <strong>Edit fields</strong> on the map; the estimate updates a
-                  second after you stop.
-                </p>
-                <div className="mt-3">
-                  <BlockList
-                    blocks={listed}
-                    onRename={(id, name) => setBlocks((cur) => cur.map((b) => (b.id === id ? { ...b, name } : b)))}
-                    onDelete={deleteBlock}
-                    onShow={(id) => {
-                      const b = blocks.find((x) => x.id === id);
-                      if (b) mapHandle.current?.fitTo([b.geometry]);
-                    }}
-                  />
-                </div>
-              </details>
-            </div>
-          )}
-        </div>
-      </aside>
-    </div>
+      {isMobile && (
+        <PhoneDrawer snap={sheet} onSnap={setSheet} title={viewLabel} scrollRef={panelRef}>
+          {panel}
+        </PhoneDrawer>
+      )}
+    </SidebarProvider>
   );
 }

@@ -1,9 +1,28 @@
-import type { Payment, ScreenResult } from "@/lib/screen";
-import { hectares } from "@/lib/format";
+import {
+  Bird,
+  Building,
+  Building2,
+  CalendarClock,
+  Droplet,
+  Flower2,
+  Footprints,
+  Landmark,
+  Layers,
+  Receipt,
+  ShieldCheck,
+  Sprout,
+  TreeDeciduous,
+  Trees,
+  TriangleAlert,
+  Waves,
+  Wheat,
+  type LucideIcon,
+} from "lucide-react";
+import type { NotOnThisLand, Payment, ScreenResult } from "@/lib/screen";
 
 // Plain-English names and reasons for each payment. Scheme terms go in `detail`.
 // Amounts and eligibility always come from screen_site(); this is wording only.
-type Wording = { title: string; detail: string; why(p: Payment): string };
+type Wording = { title: string; detail: string; why(p?: Payment): string };
 
 const tier = (code: string) => code.replace("nature_recovery_", "");
 
@@ -21,7 +40,7 @@ export const paymentWording: Record<string, Wording> = {
   nature_recovery_lower: {
     title: "Nature recovery bonus",
     detail: "EWCO additional contribution: nature recovery, lower tier",
-    why: (p) => `Your land touches an area mapped as a ${tier(p.code)} priority for joining up wildlife habitat.`,
+    why: (p) => `Your land touches an area mapped as a ${tier(p?.code ?? "lower")} priority for joining up wildlife habitat.`,
   },
   flood_risk: {
     title: "Flood reduction bonus",
@@ -36,7 +55,7 @@ export const paymentWording: Record<string, Wording> = {
   riparian: {
     title: "Riverside shade bonus",
     detail: "EWCO additional contribution: riparian buffers (Keeping Rivers Cool)",
-    why: (p) => `${hectares(p.ha)} of your land is in a riverside strip where trees would shade the water. Only that part is paid.`,
+    why: () => "Part of your land is in a riverside strip where trees would shade the water. Only that part is paid.",
   },
   close_to_settlements: {
     title: "Woodland near towns bonus",
@@ -52,6 +71,11 @@ export const paymentWording: Record<string, Wording> = {
     title: "Lower-risk land payment",
     detail: "EWCO low sensitivity land payment (Low Sensitivity Map v4.0)",
     why: () => "All the land you could plant is mapped as low sensitivity for new woodland.",
+  },
+  planting_costs: {
+    title: "Planting costs covered",
+    detail: "EWCO capital items: standard cost items and activities, up to the standard cost cap",
+    why: () => "Paid back as you claim for the planting and protection work, up to an average cap per hectare.",
   },
   maintenance: {
     title: "Yearly upkeep payment",
@@ -70,38 +94,45 @@ export function wordingFor(code: string): Wording {
   );
 }
 
-// Colours for the reasons land is left out (fills only, each with a darker outline).
-export const removalColours: Record<string, string> = {
-  sssi: "#b4664a",
-  scheduled_monument: "#8a6f9e",
-  priority_habitat: "#c9a227",
-  deep_peat: "#6b4f3a",
-  existing_woodland: "#5b7f8f",
-  developed_land: "#7b7f86",
-};
-
-// Colour per payment, shared by the map's target areas, the payment cards and
-// the money bar so the three link visually. Earthy, distinguishable hues.
+// Map and chart colours: colour-blind-safe Okabe–Ito hues, one per payment
+// family, shared by the map's target areas, the payment rows and the money bar.
+// The three nature recovery tiers share a hue and differ by fill strength and
+// outline (solid / dashed / dotted).
 export const paymentColours: Record<string, string> = {
-  nature_recovery_premium: "#3f6b35",
-  nature_recovery_high: "#5f8a45",
-  nature_recovery_lower: "#93b273",
-  flood_risk: "#3e78a0",
-  water_quality: "#6fa8c4",
-  riparian: "#2d6474",
-  close_to_settlements: "#c2873a",
-  recreational_access: "#9c5f2a",
-  low_sensitivity: "#8e86b5",
-  maintenance: "#b8ad8c",
+  nature_recovery_premium: "#009E73",
+  nature_recovery_high: "#009E73",
+  nature_recovery_lower: "#009E73",
+  flood_risk: "#0072B2",
+  water_quality: "#56B4E9",
+  riparian: "#CC79A7",
+  close_to_settlements: "#E69F00",
+  recreational_access: "#E69F00",
+  low_sensitivity: "#F0E442",
+  maintenance: "#55605a",
 };
 
-export const flagColours: Record<string, string> = {
-  peat_status: "#7a5a3e",
-  alc_provisional: "#d1b04f",
+export type LineStyle = "solid" | "dashed" | "dotted";
+
+/** Fill strength (25–45%) and outline style per payment's target area. */
+export const targetStyle: Record<string, { opacity: number; line: LineStyle }> = {
+  nature_recovery_premium: { opacity: 0.45, line: "solid" },
+  nature_recovery_high: { opacity: 0.35, line: "dashed" },
+  nature_recovery_lower: { opacity: 0.25, line: "dotted" },
 };
+const DEFAULT_TARGET_STYLE = { opacity: 0.3, line: "solid" as LineStyle };
+export function targetStyleFor(code: string | undefined) {
+  return (code && targetStyle[code]) || DEFAULT_TARGET_STYLE;
+}
+
+/** Everything that can't be planted is one vermillion family, told apart by hatching. */
+export const EXCLUSION_COLOUR = "#D55E00";
+/** Flags ("worth checking") are a dotted dark outline with no fill. */
+export const FLAG_COLOUR = "#1f2421";
+/** Land that could be planted. */
+export const PLANTABLE_COLOUR = "#7d9a6b";
 
 /** Exclusion code for each exclusion layer (matches rules.ewco_exclusions). */
-const exclusionByLayer: Record<string, string> = {
+export const exclusionByLayer: Record<string, string> = {
   sssi: "sssi",
   scheduled_monuments: "scheduled_monument",
   priority_habitat: "priority_habitat",
@@ -110,11 +141,80 @@ const exclusionByLayer: Record<string, string> = {
   developed_land: "developed_land",
 };
 
-/** Colour for a site_context() group: its top payment, its exclusion, or its flag layer. */
+/** Flag code for each flag layer (matches rules.ewco_flags). */
+export const flagByLayer: Record<string, string> = {
+  peat_status: "shallow_peat",
+  alc_provisional: "best_farmland",
+};
+
+/** Colour for a site_context() group: its top payment, the exclusion colour, or the flag outline. */
 export function contextColour(layer: { kind: string; layer_id: string; payments: string[] | null }): string {
-  if (layer.kind === "target" && layer.payments?.length) return paymentColours[layer.payments[0]] ?? "#7d9a6b";
-  if (layer.kind === "exclusion") return removalColours[exclusionByLayer[layer.layer_id]] ?? "#b4664a";
-  return flagColours[layer.layer_id] ?? "#a08a5a";
+  if (layer.kind === "target" && layer.payments?.length) return paymentColours[layer.payments[0]] ?? PLANTABLE_COLOUR;
+  if (layer.kind === "exclusion") return EXCLUSION_COLOUR;
+  return FLAG_COLOUR;
+}
+
+// Icons (Lucide), keyed by payment, exclusion and flag code.
+export const paymentIcons: Record<string, LucideIcon> = {
+  nature_recovery_premium: Sprout,
+  nature_recovery_high: Sprout,
+  nature_recovery_lower: Sprout,
+  nature_recovery: Sprout,
+  flood_risk: Waves,
+  water_quality: Droplet,
+  riparian: TreeDeciduous,
+  close_to_settlements: Building2,
+  recreational_access: Footprints,
+  low_sensitivity: ShieldCheck,
+  maintenance: CalendarClock,
+  planting_costs: Receipt,
+};
+
+export const exclusionIcons: Record<string, LucideIcon> = {
+  sssi: Bird,
+  scheduled_monument: Landmark,
+  priority_habitat: Flower2,
+  deep_peat: Layers,
+  existing_woodland: Trees,
+  developed_land: Building,
+};
+
+export const flagIcons: Record<string, LucideIcon> = {
+  best_farmland: Wheat,
+  shallow_peat: Layers,
+  large_block: TriangleAlert,
+};
+
+export type Status = "qualifies" | "partly" | "none" | "issue";
+
+export const statusLabel: Record<Status, string> = {
+  qualifies: "Qualifies",
+  partly: "Partly",
+  none: "Not this land",
+  issue: "Left out",
+};
+
+/**
+ * Tag for a payment: "Qualifies" when at least 99% of the plantable land is
+ * inside its target area (upkeep and costs always qualify), otherwise
+ * "Partly" (it touches, but less is inside, so a range applies).
+ */
+export function paymentStatus(qualification: Payment["qualification"], insideHa: number, eligibleHa: number): Status {
+  if (qualification === "eligible_area" || qualification === "whole_site_inside") return "qualifies";
+  return eligibleHa > 0 && insideHa >= 0.99 * eligibleHa ? "qualifies" : "partly";
+}
+
+/** Why a map-based bonus checked by screen_site() doesn't apply to this land. */
+export function notHereReason(item: NotOnThisLand): string {
+  if (item.reason === "needs_prerequisite") {
+    const name = item.requires_code ? wordingFor(item.requires_code).title.toLowerCase() : "another bonus";
+    return `Only paid where the ${name} applies, and that doesn't reach your land.`;
+  }
+  if (item.reason === "not_whole_site_inside") {
+    return "Paid only when all the land you could plant is in a lower-risk area, and some of yours isn't.";
+  }
+  if (item.code === "riparian") return "None of the land you could plant is in a riverside shade strip.";
+  return `The land you could plant doesn't touch ${targetPhrase[item.codes[0]] ?? "its target area"}.`;
 }
 
 // Plain phrase for "the target area" of each payment, used in sentences.

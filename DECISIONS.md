@@ -917,3 +917,160 @@ records the date, what was decided, why, and the alternatives considered.
   "None of the 9 ha you drew could be planted" (it said "Only 0 ha").
 - **Why:** "mainly site of special scientific interest" read badly. All six
   exclusions were checked in both forms.
+
+### D53. Design system: shadcn/ui, Lucide and our own tokens
+- **Date:** 2026-10-17
+- **What:**
+  - shadcn/ui (CLI 4.22.0, Radix) components copied into `src/components/ui`:
+    Button, Badge, Switch, Collapsible, Checkbox, Select, Input, Tooltip,
+    Sheet, Drawer (vaul 1.1.2), Separator, ScrollArea, Progress, Sidebar.
+    Lucide icons (`lucide-react` 1.59.0).
+  - shadcn's CSS variables point at the existing palette in
+    `src/app/globals.css`; no colours outside the agreed list. Badge has four
+    status variants (Qualifies, Partly, Not this land, Left out).
+  - One type scale (12/16 to 30/36) overrides Tailwind's `--text-*`; spacing
+    sticks to 4, 8, 12, 16, 24 and 32 px. Rows are 36 px with a mouse and
+    44 px on touch screens (a `coarse:` variant for `pointer: coarse`).
+  - Class merging uses the long-standing `clsx` + `tailwind-merge` helper in
+    `src/lib/utils.ts`. The CLI added shadcn's new `cn` package (0.5.0,
+    published the day before, pre-1.0, with compiler plugins); it was removed.
+  - `tw-animate-css` provides the Sheet and Drawer animations.
+  - Small fixes to generated code: Progress now passes `value` to Radix (it
+    was dropped, so screen readers got no value) and takes an indicator
+    colour; `useIsMobile` uses `useSyncExternalStore` (lint); the unused
+    sidebar skeleton has a fixed width (lint).
+- **Why:** Agreed in the design pass (answer 1a). Copied components can be
+  read and changed like our own code.
+- **Alternatives:** keep the hand-built controls; the `cn` package.
+
+### D54. Map and status colours, hatching and icons
+- **Date:** 2026-10-17
+- **What:**
+  - Payment target areas use Okabe–Ito hues, shared by the map, the payment
+    rows and the money bar: nature recovery `#009E73` (the three tiers at 45,
+    35 and 25% fill with solid, dashed and dotted outlines), flood `#0072B2`,
+    cleaner water `#56B4E9`, riverside shade `#CC79A7`, near towns and public
+    access `#E69F00` (public access striped in the money bar), lower-risk
+    land `#F0E442`, upkeep in muted grey (bar only).
+  - Everything that can't be planted is one vermillion `#D55E00` family, told
+    apart by hatch patterns drawn on a canvas for MapLibre `fill-pattern`
+    (SSSI `/`, Scheduled Monument cross-hatch, priority habitat dots, deep
+    peat horizontal, existing woodland `\`, developed land grid). The legend
+    swatches use the same spec as CSS gradients (`src/lib/patterns.ts`).
+    Answer 4a.
+  - Flags: dotted dark outline, no fill. Fields: 3 px ink outline on a white
+    halo; the selected field 5 px with an ochre glow.
+  - Icons per payment, exclusion and flag as agreed (Sprout, Waves, Droplet,
+    TreeDeciduous, Building2, Footprints, ShieldCheck, CalendarClock,
+    Receipt; Bird, Landmark, Flower2, Layers, Trees, Building; Wheat).
+- **Why:** Colour-blind-safe, and the hatching tells exclusions apart without
+  more hues.
+
+### D55. App shell and layout
+- **Date:** 2026-10-17
+- **What:**
+  - `/check` is an app shell (`src/components/AppShell.tsx`): a 48 px top bar
+    (name, region Select with one region, postcode search, Prototype tag,
+    help), a light 224 px sidebar (56 px collapsed) whose items switch the
+    right panel between Workspace, My fields, How to get this, Sources &
+    rates and About (answers 1a, 2a), the map, and a 400 px detail panel.
+  - The panel is collapsible sections with status tags: Summary (with the
+    public-access switch), Where the money comes from (one stacked bar, no
+    per-payment chart: answer 6), Payments, Left out, Worth checking, Fields.
+  - Payment rows: icon, name, amount or range, an inside-% bar, a status tag
+    and a chevron. Tags: Qualifies at 99% or more of the plantable land
+    inside; Partly when less; upkeep, the lower-risk payment and costs always
+    Qualify. A payment held back by the access answer shows "Access off" with
+    what it would add and the switch.
+  - The map key is docked bottom-left, collapsible, grouped as Your estimate,
+    Payment areas, Can't plant and Worth checking.
+  - Below 1,024 px (answer 5a): a menu button opens the sidebar as a Sheet, a
+    search button opens the postcode search, the map is full screen and the
+    panel is a non-modal vaul drawer at 168 px, 55% and full height with a
+    real handle button. The scroll area is padded by the drawer's hidden
+    height so the end of the panel can be reached at every height. The map
+    key and map credits sit just above the lowest drawer height.
+  - Sources & rates lists the rates in the current result (paid, costs, and
+    bonuses not on this land) with their gov.uk sections, plus limitations
+    and data credits, rather than adding a new public function.
+- **Why:** The agreed layout; the map stays visible in every view.
+- **Alternatives:** a public `rules_reference()` function for a full rates
+  table (not needed: the result lists every map-based rate when the site
+  meets the minimum).
+
+### D56. "Not on this land" in screen_site()
+- **Date:** 2026-10-17
+- **What:** Migration `20261017130000` adds `not_on_this_land` to the result:
+  every map-based bonus checked that no field gets and that isn't held back
+  by the access answer, with its rate, and a reason: `outside_area`,
+  `not_whole_site_inside` (lower-risk land) or `needs_prerequisite` (public
+  access when near-towns doesn't apply). The nature recovery tiers are
+  listed once as a group, and only if no tier applies. Empty below the site
+  minimum. Answer 3.
+- **Why:** Shows what was checked as well as what was found.
+
+### D57. What each payment entails, from gov.uk, in the database
+- **Date:** 2026-10-17
+- **What:**
+  - New tables in the private `rules` schema: `payment_details` (per rate
+    code: why the government pays it, when it's paid, the gov.uk section and
+    link, date checked), `payment_items` (per rate code, a "what you'd have
+    to do" or "what you're committing to" line, each with its own section,
+    link and date; a null code applies to every payment) and
+    `payment_groups` (the nature recovery group name). `screen_site()`
+    returns `payment_details` for every code paid, covered or held back.
+  - Expanded payment rows show seven parts: what it pays and how it's
+    worked out for this land (from the rates and the result), why the
+    government pays it, why your land qualifies (with Show on map), the
+    checklist, the commitments, when it's paid, and the sources.
+  - Written only from the EWCO guidance (updated 11 August 2026) and the
+    Additional contributions page (updated 5 October 2026), both re-read on
+    2026-10-17. Anything not stated there is left out. In particular:
+    - the lower-risk land payment has no checklist of its own, because the
+      guidance states no design rules for it;
+    - the shared lines (UK Forestry Standard, 20 m average width, 15 years'
+      upkeep after the final payment, permanently non-agricultural land,
+      management control for the whole agreement) are on every payment;
+    - red squirrel and ammonia rules are not included (not assessed here).
+  - Tests: `scripts/sql/test_payment_details.sql` (33 checks), also run by
+    `verify_hosted.sh`.
+- **Why:** The user's brief: plain-English sections per payment, updatable
+  without code changes, nothing invented.
+
+### D58. Start page as a front door
+- **Date:** 2026-10-17
+- **What:** A new start page: one-line value statement, "Check your land"
+  button, a framed screenshot of the workspace (`public/workspace-preview.webp`,
+  captured by `scripts/capture-preview.mjs` with headless Chrome on test site 4
+  and the field north of it, with the map credit in the caption), how it
+  works in three steps, and the area covered with an outline of the region.
+  The outline (`src/components/RegionOutline.tsx`) comes from
+  `layers.regions`: the largest part's outer ring after a 100 m
+  buffer/unbuffer, simplified to 250 m, in British National Grid scaled to
+  hundreds of metres from 501000, 318000:
+  `st_assvg(st_scale(st_translate(st_simplifypreservetopology(st_makepolygon(st_exteriorring(g)), 250), -501000, -318000), 0.01, 0.01), 1, 0)`.
+  Town dots are approximate.
+- **Why:** It is the first thing reviewers see.
+- **Notes:** Copy avoids claims we can't check (no "nothing is stored") and
+  numbers that live in settings (no "400 ha").
+
+### D59. Rates re-checked
+- **Date:** 2026-10-17
+- **What:** Every rate in `rules.ewco_rates` was re-checked against both
+  gov.uk pages and is unchanged; the migration sets `date_checked` to
+  2026-10-17.
+
+### Design pass test results (local)
+- **Date:** 2026-10-17
+- **SQL:** `verify_load.sql` 27/27; `test_screen_site.sql` 91/91 plus both
+  fail-closed checks; `test_explain_context.sql` 47/47;
+  `test_payment_details.sql` 33/33. The new migration applies cleanly on top
+  of the hosted state (tested in a rolled-back transaction). 398 ha worst
+  case: 210 ms locally, unchanged.
+- **Front end:** type check, ESLint and production build pass.
+- **Browser, desktop (1440 px):** shell, sidebar views, Step 1 and 2, results
+  on test sites 4 (two fields) and 5 (£5,242, SSSI hatched), payment
+  breakdowns, Show on map, all map layers, start page.
+- **Browser, phone (375 px):** menu sheet, view switching, drawer at three
+  heights (168 px visible at the lowest), map key and credits above it, no
+  sideways scrolling on either page.

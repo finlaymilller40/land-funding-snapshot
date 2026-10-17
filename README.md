@@ -50,9 +50,31 @@ shows what could be planted and why the rest was left out.
 Live since 2026-10-17 (sites up to 400 ha; hosted database 222 MB, 44% of
 the free tier's 500 MB).
 
+**Design pass: built locally, 2026-10-17 (not yet live).**
+- **App shell:** a top bar (region, postcode search), a light sidebar that
+  switches the panel between Workspace, My fields, How to get this, Sources &
+  rates and About, the map, and a 400 px detail panel of collapsible sections
+  with status tags. On phones the sidebar is a sheet and the panel a drawer
+  with three heights.
+- **Design system:** shadcn/ui components and Lucide icons on the existing
+  earthy palette, one type scale, colour-blind-safe map colours, and hatched
+  "can't plant" areas.
+- **What each payment entails:** each payment row opens to what it pays, why
+  the government pays it, why your land qualifies, a checklist of what you'd
+  have to do, what you're committing to, when it's paid and the gov.uk
+  source. The wording is in database tables with source links.
+- **Not on this land:** bonuses checked but not reaching the land are listed.
+- **Start page:** redesigned, with a workspace preview, three steps and the
+  area covered.
+
+Going live needs the user to run `npx supabase db push` (one new migration)
+and `./scripts/verify_hosted.sh`, then a push to GitHub.
+
 ## Stack
 
 - Next.js (TypeScript, App Router, Tailwind CSS) on Vercel
+- shadcn/ui (Radix) components in `src/components/ui`, Lucide icons, vaul drawer
+- MapLibre GL and Terra Draw for the map
 - Supabase: Postgres + PostGIS, Auth, row-level security
 - Supabase CLI (npm dev dependency) with Docker for local development
 
@@ -81,9 +103,10 @@ Never put the service role key in `.env.local` or any front-end code.
 
 ## Database changes
 
-Migrations live in `supabase/migrations/`. Create one with
-`npx supabase migration new <name>`, apply it locally with
-`npx supabase db reset`, and push it to the hosted project with
+Migrations live in `supabase/migrations/`. Write new ones by hand with a UTC
+timestamp name (`npx supabase migration new` can hang). Apply them locally
+with `npx supabase migration up --local` (`npx supabase db reset` also works
+but wipes the loaded layers), and push them to the hosted project with
 `npx supabase db push`.
 
 ## Open data layers
@@ -118,11 +141,23 @@ curl -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/screen_site" \
 ```
 
 Rates, exclusions, flags and wording are rows in `rules.*` tables, not code.
-Test against hand-worked values:
+That includes what each payment entails (`rules.payment_details` and the
+`rules.payment_items` checklist), written only from the gov.uk EWCO guidance
+and Additional contributions pages, each line with its section and date
+checked. The result returns them as `payment_details`, plus
+`not_on_this_land` for bonuses checked that don't reach the land.
+
+Tests:
 
 ```bash
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql      # hand-worked values
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql  # ranges, site_context()
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql  # payment details, not on this land
 ```
+
+The start page's workspace preview is captured with
+`node scripts/capture-preview.mjs public/workspace-preview.webp <fields.geojson>`
+(see the script for the fields used).
 
 ### Data sources and attribution
 

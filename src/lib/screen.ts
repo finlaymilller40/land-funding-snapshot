@@ -40,6 +40,35 @@ export type Removal = { code: string; reason: string; ha: number; explanation: s
 export type Flag = { code: string; label?: string; ha?: number; explanation: string };
 export type NotApplied = { code: string; payment: string; reason: string; would_be_gbp: number; would_be_low_gbp: number };
 
+/** A map-based bonus screen_site() checked that doesn't apply to this land. */
+export type NotOnThisLand = {
+  /** Rate code, or the group code (nature_recovery) when listed as a group. */
+  code: string;
+  name: string;
+  codes: string[];
+  rate_low_gbp: number;
+  rate_high_gbp: number;
+  unit: string;
+  layer_id: string;
+  reason: "outside_area" | "not_whole_site_inside" | "needs_prerequisite";
+  requires_code?: string | null;
+  requires_name?: string | null;
+};
+
+/** One checklist line, with the gov.uk section it comes from. */
+export type SourcedItem = { text: string; source_section: string; source_url: string };
+
+/** What a payment entails (rules.payment_details and rules.payment_items). */
+export type PaymentDetail = {
+  benefit: string;
+  paid_when: string;
+  source_section: string;
+  source_url: string;
+  date_checked: string;
+  what_to_do: SourcedItem[];
+  commitments: SourcedItem[];
+};
+
 export type BlockResult = {
   block: number;
   name: string;
@@ -80,6 +109,10 @@ export type ScreenResult = {
   };
   costs_covered: { planting_costs_up_to_gbp: number; ha: number; rate_gbp_per_ha: number; condition: string };
   blocks: BlockResult[];
+  /** Map-based bonuses checked but not on this land (empty below the site minimum). */
+  not_on_this_land: NotOnThisLand[];
+  /** Keyed by rate code, for every code paid, covered or held back in the result. */
+  payment_details: Record<string, PaymentDetail>;
   site_flags: Flag[];
   next_steps: { code: string; title: string; body: string; source_url: string }[];
   limitations: string[];

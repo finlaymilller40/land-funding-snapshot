@@ -1,10 +1,14 @@
 "use client";
 
+import { Search } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-type Props = { onFound(lon: number, lat: number): void };
+type Props = { onFound(lon: number, lat: number): void; autoFocus?: boolean };
 
-export function PostcodeSearch({ onFound }: Props) {
+/** Compact postcode search for the top bar. Messages appear just below it. */
+export function PostcodeSearch({ onFound, autoFocus }: Props) {
   const [postcode, setPostcode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -23,10 +27,10 @@ export function PostcodeSearch({ onFound }: Props) {
       const body = (await res.json()) as { result?: { longitude: number | null; latitude: number | null } };
       const r = body.result;
       if (!res.ok || !r || r.longitude == null || r.latitude == null) {
-        setMessage("We couldn't find that postcode. Check it and try again, or move the map yourself.");
+        setMessage("We couldn't find that postcode. Check it, or move the map yourself.");
       } else {
         onFound(r.longitude, r.latitude);
-        setMessage(`Showing ${value.toUpperCase()}.`);
+        setMessage(null);
       }
     } catch {
       setMessage("Postcode search isn't available right now. You can still move the map yourself.");
@@ -36,28 +40,27 @@ export function PostcodeSearch({ onFound }: Props) {
   }
 
   return (
-    <form onSubmit={search} className="flex flex-wrap items-end gap-2">
-      <div>
-        <label htmlFor="postcode" className="block font-semibold">
-          Postcode
-        </label>
-        <input
-          id="postcode"
-          value={postcode}
-          onChange={(e) => setPostcode(e.target.value)}
-          autoComplete="postal-code"
-          spellCheck={false}
-          className="mt-1 min-h-11 w-40 rounded border-2 border-ink bg-white px-3 uppercase"
-        />
-      </div>
-      <button
-        type="submit"
-        disabled={busy}
-        className="min-h-11 rounded bg-moss px-4 font-semibold text-white hover:bg-moss-dark disabled:opacity-60"
+    <form onSubmit={search} role="search" className="relative flex w-full items-center gap-1">
+      <label htmlFor="postcode" className="sr-only">
+        Find your land by postcode
+      </label>
+      <Input
+        id="postcode"
+        value={postcode}
+        onChange={(e) => setPostcode(e.target.value)}
+        placeholder="Postcode, e.g. PE28 0AA"
+        autoComplete="postal-code"
+        spellCheck={false}
+        autoFocus={autoFocus}
+        className="h-8 bg-white uppercase placeholder:normal-case coarse:h-11"
+      />
+      <Button type="submit" size="icon-sm" disabled={busy} aria-label={busy ? "Finding postcode" : "Find postcode"}>
+        <Search aria-hidden="true" />
+      </Button>
+      <p
+        role="status"
+        className={message ? "absolute top-full right-0 left-0 z-40 mt-1 rounded-md border border-line bg-white px-3 py-2 text-xs shadow-md" : "sr-only"}
       >
-        {busy ? "Finding…" : "Find"}
-      </button>
-      <p className="w-full text-sm text-muted" role="status">
         {message}
       </p>
     </form>
