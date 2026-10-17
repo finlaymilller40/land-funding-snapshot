@@ -51,8 +51,8 @@ insert into checks select 'site 1', 'riparian: qualifying shape area = inside_ha
   abs(st_area(st_transform(st_geomfromgeojson(p ->> 'qualifying_geometry'), 27700)) / 1e4 - (p ->> 'inside_ha')::numeric) <= 0.02
 from r1, jsonb_array_elements(j -> 'blocks' -> 0 -> 'payments') p where p ->> 'code' = 'riparian';
 
--- 2. The user-test case, scaled to the 500 ha limit: a 441 ha single block on the edge of Huntingdon ----
-create temporary table big as select st_buffer(st_setsrid(st_point(524500, 272500), 27700), 1050, 'endcap=square') g;
+-- 2. The user-test case, scaled to the 400 ha limit: a 361 ha single block on the edge of Huntingdon ----
+create temporary table big as select st_buffer(st_setsrid(st_point(524500, 272500), 27700), 950, 'endcap=square') g;
 create temporary table rb as select public.screen_site(pg_temp.fc((select g from big)), true) j;
 
 insert into checks select 'huntingdon', 'developed land removed (ha > 100)', '> 100',
@@ -155,9 +155,9 @@ begin
   end loop;
 end $$;
 
--- Size limit (500 ha, rules.settings): both functions refuse a 600 ha site.
+-- Size limit (400 ha, rules.settings): both functions refuse a 450 ha site.
 do $$
-declare g geometry := st_buffer(st_setsrid(st_point(512000, 268000), 27700), 1225, 'endcap=square');  -- 600 ha
+declare g geometry := st_buffer(st_setsrid(st_point(512000, 268000), 27700), 1061, 'endcap=square');  -- 450 ha
   m1 text; m2 text;
 begin
   begin perform public.screen_site(pg_temp.fc(g), true); m1 := '(no error)';
@@ -165,8 +165,8 @@ begin
   begin perform public.site_context(pg_temp.fc(g)); m2 := '(no error)';
   exception when sqlstate '22023' then m2 := sqlerrm; end;
   insert into checks values
-    ('size limit', 'screen_site refuses 600 ha', 'site is larger than the 500 ha limit', m1, m1 = 'site is larger than the 500 ha limit'),
-    ('size limit', 'site_context refuses 600 ha', 'site is larger than the 500 ha limit', m2, m2 = 'site is larger than the 500 ha limit');
+    ('size limit', 'screen_site refuses 450 ha', 'site is larger than the 400 ha limit', m1, m1 = 'site is larger than the 400 ha limit'),
+    ('size limit', 'site_context refuses 450 ha', 'site is larger than the 400 ha limit', m2, m2 = 'site is larger than the 400 ha limit');
 end $$;
 
 insert into checks select 'site_context', 'anon can execute', 'true', has_function_privilege('anon', 'public.site_context(jsonb)', 'execute')::text,
@@ -179,10 +179,10 @@ select area, check_name, expected, actual, case when ok then 'pass' else 'FAIL' 
 from checks order by area, check_name;
 select count(*) filter (where ok) passed, count(*) filter (where not ok or ok is null) problems from checks;
 
-\echo === Time and size at the largest allowed site (just under 500 ha, on the Huntingdon edge) ===
+\echo === Time and size at the largest allowed site (just under 400 ha, on the Huntingdon edge) ===
 do $$
 declare t0 timestamptz; t1 timestamptz; j jsonb; k jsonb;
-  g geometry := st_buffer(st_setsrid(st_point(524500, 272500), 27700), 1115, 'endcap=square');  -- 497 ha
+  g geometry := st_buffer(st_setsrid(st_point(524500, 272500), 27700), 997, 'endcap=square');  -- 398 ha
 begin
   t0 := clock_timestamp(); j := public.screen_site(pg_temp.fc(g), true);
   t1 := clock_timestamp(); k := public.site_context(pg_temp.fc(g));

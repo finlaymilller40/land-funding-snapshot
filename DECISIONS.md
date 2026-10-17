@@ -857,3 +857,29 @@ records the date, what was decided, why, and the alternatives considered.
     in a rolled-back transaction).
 - **Alternatives:** 1,000 ha (occasional cold-start timeouts); a longer anon
   timeout; Supabase Pro.
+
+### D51. Site size limit 400 ha, after hosted timings (proposed; migration ready)
+- **Date:** 2026-10-17
+- **What:** Migration `20261017114314` sets `max_site_drawn_ha` to 400.
+  Tests now use a 361 ha Huntingdon block and check that both functions
+  refuse 450 ha. The 1 km `site_context()` surround stays.
+- **Why:** Measured on the hosted free tier through the API with the anon
+  key, on the worst-case built-up edge:
+  - **`screen_site()`, warm:** 0.71–0.74 s at 300 ha, 0.73–0.83 s at
+    400 ha, 1.13–1.15 s at 497 ha.
+  - **Cold start:** the first call in a session took 2.37 s for a site that
+    then ran in 0.71 s, so a cold start adds about 1.6 s. The likely cause
+    is the free tier's small memory not keeping 222 MB of layers cached.
+  - **So:** a cold call would be about 2.8 s at 497 ha, too close to the
+    3 s anon timeout, and about 2.4 s at 400 ha.
+
+  The verify script's in-database timing (2.06 s at 497 ha) was probably
+  partly cold.
+- **`site_context()`:** about 1.6–1.9 s warm on hosted at 300–497 ha,
+  largely independent of size. A smaller surround barely helps large sites:
+  locally 484 → 377 ms at 398 ha for 1 km → 500 m. A cold call on a very
+  large site can still time out; the website then keeps the estimate and
+  shows "nearby layers aren't available". Gzip keeps transfers to about
+  125–135 KB.
+- **Alternatives:** 500 ha (cold calls near the limit); 300 ha; a 500 m
+  surround; Pro compute.
