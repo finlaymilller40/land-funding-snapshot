@@ -112,7 +112,7 @@ export default function Home() {
                 dashed outline.
               </p>
               <ul className="mt-4 max-w-xl space-y-2 text-sm text-muted">
-                <li>Checked against 14 open map layers for the area, from protected sites to deep peat.</li>
+                <li>Checked against 15 open map layers for the area, from protected sites to deep peat and open water.</li>
                 <li>Rates and rules from the England Woodland Creation Offer guidance on gov.uk, with the date checked.</li>
                 <li>Each field is checked separately, the way payments are worked out.</li>
               </ul>

@@ -2,7 +2,7 @@
 
 Everything a new session needs to carry on without the previous
 conversation. Read this, then `AGENTS.md`, `README.md` and `DECISIONS.md`
-(68 numbered decisions, D1–D68, plus test-result notes).
+(69 numbered decisions, D1–D69, plus test-result notes).
 
 Last updated: 2026-10-17.
 
@@ -50,7 +50,7 @@ E47000008, the BFE "full extent" boundary since D66).
    questions; the user answers like "1a 2b 3 yes". Don't use pop-up question
    dialogs, which the user dismisses.
 2. **Log every decision in `DECISIONS.md`** with date, what, why and
-   alternatives. Continue the numbering from D69.
+   alternatives. Continue the numbering from D70.
 3. **Secret-scan before every commit.** No keys, passwords, `.env*` or
    `data/` files. A minimal check:
    `git diff --cached | grep -nE '(sb_secret_|eyJhbGciOi|gho_|ghp_|SUPABASE_[A-Z_]*KEY=[^<]|postgres(ql)?://[^@]*:[^@]*@)'`.
@@ -110,7 +110,7 @@ matters:** the user runs `npx supabase db push` (and `verify_hosted.sh`)
 `verify_hosted.sh`; all pass):
 - **Migrations:** all 9 in `supabase/migrations/` applied, the last being
   `20261017114314_lower_site_limit_to_400_ha.sql`.
-- **Layers:** all 14 loaded, matching local exactly on features, hectares
+- **Layers:** all 14 loaded (before D66/D69), matching local exactly on features, hectares
   and pieces. `developed_land` was loaded last.
 - **Size:** 222 MB, 44% of the free tier's 500 MB.
 - **Settings:**
@@ -162,12 +162,12 @@ matters:** the user runs `npx supabase db push` (and `verify_hosted.sh`)
 
 **SQL tests** (run against local):
 ```
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 29 pass
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 30 pass
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql     # 92/92 + 2 fail-closed
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql # 47/47
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql # 33/33
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_small_pieces.sql    # 19/19
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_region_edge.sql     # 18/18
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_region_edge.sql     # 21/21
 ```
 - **Hosted (the user runs it):** `./scripts/verify_hosted.sh` runs all six
   against `DATABASE_URL` (the Session pooler string, set with
@@ -266,25 +266,21 @@ committed, but **not pushed**: D53–D59 in `DECISIONS.md` have the detail.
 before and after the database update: without the new fields the panel just
 has no breakdowns.
 
-**Database: not yet updated (needs the user).** Three migrations are
-waiting, plus a reload of the region and layers (D66). See "Hosted steps"
-below.
+**Database: not yet updated (needs the user).** Four migrations are
+waiting (`20261017130000`, `20261019180000`, `20261019200000`,
+`20261019210000`), plus a reload of the BFE region and all 15 layers (the
+new one is `open_water`).
 
-**Hosted steps, in order (the user runs them; they need the password):**
-1. `npx supabase db push`: applies `20261017130000`, `20261019180000`
-   and `20261019200000`.
-2. With `DATABASE_URL` set to the Session pooler string:
-   `npm run load-layers -- --refresh` reloads the BFE region boundary and all
-   14 layers (about 15 minutes; `--refresh` is needed so the region and the
-   layers are downloaded fresh, matching the local reference).
-3. `./scripts/verify_hosted.sh` (six suites; expect 29, 92 + 2, 47, 33, 19,
-   18). The layer counts must match the 2026-10-19 local reference; if a
-   source has changed since, the counts will differ slightly.
-4. Push the local commits (with the user's OK).
-
-**Open decision (D68):** open water is not an exclusion. With BFE the tidal
-Nene counts as plantable if drawn over. Living England's "Water" class
-would cover it.
+**Hosted steps, in order (the user runs 1–4; they need the password):**
+1. `npx supabase db push`.
+2. Set `DATABASE_URL` to the Session pooler string:
+   `read -s "DATABASE_URL?Paste the session pooler connection string: " && export DATABASE_URL`.
+3. `npm run load-layers -- --refresh` (about 15–20 minutes): the BFE region
+   and all 15 layers, downloaded fresh.
+4. `./scripts/verify_hosted.sh` (six suites; expect 30, 92 + 2 fail-closed,
+   47, 33, 19, 21). If a source changed after 2026-10-19 the layer counts
+   will differ slightly.
+5. Push the local commits (with the user's OK), then check the live site.
 
 **Later (2026-10-19):** small pieces under 0.1 ha left out (D62), protected
 sites analysis (D63: only Local Nature Reserves add land outside SSSIs,

@@ -1,5 +1,6 @@
--- Tests for the region boundary switch to ONS BFE (D66) and land outside the
--- region being left out rather than refused (D67, migration 20261019200000).
+-- Tests for the region boundary switch to ONS BFE (D66), land outside the
+-- region being left out rather than refused (D67, migration 20261019200000)
+-- and open water removed (D69, migration 20261019210000).
 --
 --   docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_region_edge.sql
 
@@ -45,6 +46,37 @@ insert into checks select 'bfe', 'field across the Nene accepted, nothing outsid
                                               where x ->> 'code' = 'outside_region') || ' outside'),
   j ? 'summary' and not exists (select 1 from jsonb_array_elements(j -> 'blocks' -> 0 -> 'removed') x
                                 where x ->> 'code' = 'outside_region')
+from nene;
+
+-- Open water (D69): the Nene channel in that field is removed, not plantable.
+-- Independent: Living England water in the field, minus what the six
+-- higher-priority exclusions already cover there.
+create temporary table nene_water as
+with f as (select st_makeenvelope(540789 - 150, 304326 - 150, 540789 + 150, 304326 + 150, 27700) g),
+ higher as (
+   select st_union(case when e.buffer_m > 0 then st_buffer(x.geom, e.buffer_m) else x.geom end) g
+   from rules.ewco_exclusions e join layers.features x on x.layer_id = e.layer_id
+     and (e.qualifying_classes is null or x.class = any (e.qualifying_classes))
+   , f where e.priority < 7 and st_dwithin(x.geom, f.g, e.buffer_m)),
+ water as (select st_union(x.geom) g from layers.features x, f
+           where x.layer_id = 'open_water' and x.class = 'Water' and st_intersects(x.geom, f.g))
+select st_area(st_difference(st_intersection(water.g, f.g), coalesce(higher.g, 'POLYGON EMPTY'::geometry))) / 1e4 ha
+from f, water, higher;
+
+insert into checks select 'open water', 'Nene field: channel removed as open water', round(w.ha::numeric, 2)::text,
+  coalesce((select x ->> 'ha' from jsonb_array_elements(j -> 'blocks' -> 0 -> 'removed') x where x ->> 'code' = 'open_water'), 'none'),
+  abs(coalesce((select (x ->> 'ha')::numeric from jsonb_array_elements(j -> 'blocks' -> 0 -> 'removed') x where x ->> 'code' = 'open_water'), -1)
+      - round(w.ha::numeric, 2)) <= 0.01 and w.ha > 0.5
+from nene, nene_water w;
+insert into checks select 'open water', 'Nene field: river centre not plantable', 'false',
+  st_intersects(st_transform(st_geomfromgeojson(j #>> '{blocks,0,geometry,eligible}'), 27700),
+                st_setsrid(st_point(540789, 304326), 27700))::text,
+  not st_intersects(st_transform(st_geomfromgeojson(j #>> '{blocks,0,geometry,eligible}'), 27700),
+                    st_setsrid(st_point(540789, 304326), 27700))
+from nene;
+insert into checks select 'open water', 'limitation about approximate edges', 'present',
+  coalesce((select 'present' from jsonb_array_elements_text(j -> 'limitations') l where l like 'Open water is removed using Natural England%'), 'missing'),
+  exists (select 1 from jsonb_array_elements_text(j -> 'limitations') l where l like 'Open water is removed using Natural England%')
 from nene;
 
 -- 2. At the outer (western) edge ------------------------------------------------

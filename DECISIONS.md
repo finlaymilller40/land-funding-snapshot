@@ -1246,7 +1246,7 @@ records the date, what was decided, why, and the alternatives considered.
   `developed_land` (zone 7 returns "Water" at both channels). It would be a
   seventh exclusion or a widened developed-land filter. The EWCO pages don't
   list water as ineligible, so it would be a screening exclusion like SSSIs.
-- **Decision needed from the user.**
+- **Resolved by D69** (the user chose to add it).
 
 ### Test results after D66–D68 (local)
 - **Date:** 2026-10-19
@@ -1259,3 +1259,54 @@ records the date, what was decided, why, and the alternatives considered.
   will be left out"), and the estimate leaves out 1.22 ha as "Outside the
   area we cover" (the browser uses the 10 m simplified outline); the map has
   no lines inside the region.
+
+### D69. Open water as a seventh exclusion
+- **Date:** 2026-10-19
+- **What:**
+  - New layer `open_water` in `config/layers.json`: Living England 2022–23,
+    class "Water", from the same service and zones (6–9) as
+    `developed_land`. Locally 17,996 features, 4,208 ha in the region.
+  - Migration `20261019210000`: exclusion `open_water`, shown as "Open
+    water", priority 7 (after the other six, so water inside an SSSI, for
+    example, stays credited to the SSSI). Explanation: "Rivers, lakes, ponds
+    and other open water can't be planted with new woodland."
+  - The `screening_exclusions` limitation now includes open water (the EWCO
+    pages don't list it as ineligible). A new limitation, `open_water_edges`:
+    the habitat map is mapped from satellite images at about 10 m, so edges
+    are approximate and narrow ditches and drains may not be removed.
+  - Website: "Open water" in Left out and the map key, with a ripple pattern
+    (staggered dashes) and the Droplets icon. The start page now says 15 map
+    layers.
+- **Why:** With the BFE boundary (D66), a field drawn over the tidal Nene
+  counted the river as plantable (D68). It also removes lakes, ponds and
+  gravel pits across the region, which were counted as plantable before.
+- **Effect:** none of the five standard test sites or the large-block case
+  has mapped water, so all hand-worked values are unchanged. A 300 m field
+  across the Nene (540789, 304326) now has 0.92 ha removed as open water;
+  the river splits it, so 0.22 ha of slivers also go as small pieces (D62).
+- **Tests:** three new checks in `test_region_edge.sql` (21 in total): the
+  Nene channel is removed and matches an independent calculation (Living
+  England water in the field minus the six higher-priority exclusions), the
+  river centre is not plantable, and the limitation is present.
+  `verify_load.sql` has a reference row for `open_water` and expects 7
+  exclusions and 17 messages (30 checks).
+
+### D67 amendment: the no-region error path
+- **Date:** 2026-10-19
+- **What:** Migration `20261019200000` (not yet on the hosted database, so
+  edited in place) checked `region_union is null` among the settings at the
+  start of `screen_site()`. With no region loaded that raised "rules.settings
+  is incomplete" before `parse_site()` could give its usual refusal, so the
+  "no regions loaded" fail-closed test printed nothing. It still refused, but
+  with the wrong error. The check is removed; `parse_site()` refuses first.
+  Both fail-closed checks pass again.
+
+### Test results after D69 (local)
+- **Date:** 2026-10-19
+- `verify_load.sql` 30/30; `test_screen_site.sql` 92/92 plus both
+  fail-closed checks; `test_explain_context.sql` 47/47;
+  `test_payment_details.sql` 33/33; `test_small_pieces.sql` 19/19;
+  `test_region_edge.sql` 21/21. Type check, lint and build pass. 398 ha worst
+  case: `screen_site()` 194 ms locally.
+- Browser: the Nene field lists "Open water 0.92 ha" and the map shows the
+  channel with the ripple pattern.

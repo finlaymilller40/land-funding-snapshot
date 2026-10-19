@@ -4,6 +4,7 @@ import {
   Building2,
   CalendarClock,
   Droplet,
+  Droplets,
   Flower2,
   Footprints,
   Landmark,
@@ -141,6 +142,7 @@ export const exclusionByLayer: Record<string, string> = {
   peat_status: "deep_peat",
   nfi_woodland: "existing_woodland",
   developed_land: "developed_land",
+  open_water: "open_water",
 };
 
 /** Flag code for each flag layer (matches rules.ewco_flags). */
@@ -179,6 +181,7 @@ export const exclusionIcons: Record<string, LucideIcon> = {
   deep_peat: Layers,
   existing_woodland: Trees,
   developed_land: Building,
+  open_water: Droplets,
   small_piece: Scissors,
   outside_region: MapPinOff,
 };
@@ -275,6 +278,7 @@ export const leftOutPhrase: Record<string, { because: string; mainly: string }> 
     because: "it is developed land (buildings, gardens or solar farms)",
     mainly: "developed land (buildings, gardens and solar farms)",
   },
+  open_water: { because: "it is open water", mainly: "open water" },
   small_piece: {
     because: "it is in separate pieces under 0.1 ha, the smallest a planting area can be",
     mainly: "separate pieces under 0.1 ha",

@@ -120,6 +120,8 @@ declare
   small_text text := (select text from rules.messages where code = 'small_piece');
   outside_label text := (select label from rules.messages where code = 'outside_region');
   outside_text text := (select text from rules.messages where code = 'outside_region');
+  -- No region loaded: parse_site() below refuses the site with the usual
+  -- "outside the area we have data for" error before this is used.
   region_union extensions.geometry := (select st_union(r.geom) from layers.regions r);
 
   n int;
@@ -179,7 +181,7 @@ begin
   -- Missing settings would make comparisons null and silently pass. Fail closed.
   if min_site_ha is null or min_block_ha is null or tol_pct is null or tol_m2 is null or large_ha is null
      or small_label is null or small_text is null
-     or outside_label is null or outside_text is null or region_union is null then
+     or outside_label is null or outside_text is null then
     raise exception 'screen_site: rules.settings is incomplete';
   end if;
 

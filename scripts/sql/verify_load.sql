@@ -22,6 +22,7 @@ insert into expected values
   ('ewco_priority_habitat_network', 11245,  3761,  216347.0),
   ('ewco_water_quality',              123,     5,  125774.7),
   ('nfi_woodland',                   5819,  4744,   12507.0),
+  ('open_water',                    18125, 17996,    4208.3),
   ('peat_status',                   20357, 16835,   91888.5),
   ('priority_habitat',              14467, 10908,   23516.4),
   ('scheduled_monuments',             526,   338,    1726.2),
@@ -50,11 +51,11 @@ select 'region area (ha)' as check, round((extensions.st_area(geom) / 1e4)::nume
        case when abs(extensions.st_area(geom) / 1e4 - 339743.1) <= 0.5 then 'pass' else 'FAIL' end as status
 from layers.regions where id = 'cambridgeshire-and-peterborough'
 union all select 'rules.ewco_rates rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.ewco_rates
-union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 6 then 'pass' else 'FAIL' end from rules.ewco_exclusions
+union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.ewco_exclusions
 union all select 'rules.ewco_flags rows', count(*)::text, case when count(*) = 2 then 'pass' else 'FAIL' end from rules.ewco_flags
 union all select 'rules.settings rows', count(*)::text, case when count(*) = 12 then 'pass' else 'FAIL' end from rules.settings
--- 16 messages after migration 20261019200000 (small_piece, outside_region, three limitations).
-union all select 'rules.messages rows', count(*)::text, case when count(*) = 16 then
+-- 17 messages after migration 20261019210000 (small_piece, outside_region, four limitations).
+union all select 'rules.messages rows', count(*)::text, case when count(*) = 17 then
   'pass' else 'FAIL' end from rules.messages
 union all select 'rules.guidance_steps rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.guidance_steps
 union all select 'rules.payment_details rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.payment_details
