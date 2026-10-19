@@ -53,9 +53,12 @@ union all select 'rules.ewco_rates rows', count(*)::text, case when count(*) = 1
 union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 6 then 'pass' else 'FAIL' end from rules.ewco_exclusions
 union all select 'rules.ewco_flags rows', count(*)::text, case when count(*) = 2 then 'pass' else 'FAIL' end from rules.ewco_flags
 union all select 'rules.settings rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.settings
-union all select 'rules.messages rows', count(*)::text, case when count(*) = 11 then
+-- 15 messages after migration 20261019180000 (small_piece and three limitations).
+union all select 'rules.messages rows', count(*)::text, case when count(*) = 15 then
   'pass' else 'FAIL' end from rules.messages
 union all select 'rules.guidance_steps rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.guidance_steps
+union all select 'rules.payment_details rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.payment_details
+union all select 'rules.payment_items rows', count(*)::text, case when count(*) = 56 then 'pass' else 'FAIL' end from rules.payment_items
 union all select 'leftover staging tables', count(*)::text, case when count(*) = 0 then 'pass' else 'FAIL' end
   from pg_tables where schemaname = 'layers_staging'
 union all select 'anon can run screen_site', has_function_privilege('anon', 'public.screen_site(jsonb, boolean)', 'execute')::text,

@@ -4,6 +4,7 @@
 #   2. screen_site() hand-worked tests (scripts/sql/test_screen_site.sql)
 #   3. ranges, large blocks, next steps, site_context() (scripts/sql/test_explain_context.sql)
 #   4. payment details and "not on this land" (scripts/sql/test_payment_details.sql)
+#   5. small pieces and the newer limitations (scripts/sql/test_small_pieces.sql)
 #
 # Usage, with the Session pooler connection string in DATABASE_URL:
 #   read -s "DATABASE_URL?Paste the session pooler connection string: " && export DATABASE_URL
@@ -55,3 +56,7 @@ run_sql scripts/sql/test_explain_context.sql 2>&1 | grep -v -E '^(CREATE|INSERT|
 echo
 echo "################ 4. Design pass: payment details, not on this land ################"
 run_sql scripts/sql/test_payment_details.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|SELECT)'
+
+echo
+echo "################ 5. Small pieces and newer limitations ################"
+run_sql scripts/sql/test_small_pieces.sql 2>&1 | grep -v -E '^(CREATE|INSERT|SET|DO|SELECT)'

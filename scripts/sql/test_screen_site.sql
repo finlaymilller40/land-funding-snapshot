@@ -83,19 +83,22 @@ insert into expected (id, key, value, tol) values
   ('4b riparian', 'one_off total', 36295, 3), ('4b riparian', 'maintenance per_year', 3600, 0),
   ('4b riparian', 'maintenance 15y total', 54000, 0), ('4b riparian', 'income total', 90295, 3),
   ('4b riparian', 'costs planting up_to', 91800, 0),
-  -- 5: block 1 straddles the SSSI: 4.235 ha removed, 4.765 ha left (Grade 2, NR lower).
+  -- 5: block 1 straddles the SSSI: 4.235 ha removed, leaving one 4.7628 ha piece and a
+  --    separate 22.9 m² sliver, which is under 0.1 ha so left out as a small piece (D62).
   --    Block 2 is 25 m x 25 m = 0.0625 ha: under 0.1 ha, so flagged and not paid.
-  --    NR lower 4.765 x 1,100; maintenance 4.765 x 400 = 1,906/yr x 15; costs 4.765 x 10,200.
+  --    NR lower 4.7628 x 1,100 = 5,239; maintenance 4.7628 x 400 = 1,905/yr x 15 = 28,577;
+  --    costs 4.7628 x 10,200 = 48,581.
   ('5 sssi edge', 'site eligible_ha', 4.77, 0.01), ('5 sssi edge', 'site meets_minimum', 1, 0),
   ('5 sssi edge', 'site low_sensitivity', 0, 0),
   ('5 sssi edge', 'block 1 removed sssi', 4.24, 0.01), ('5 sssi edge', 'block 1 eligible_ha', 4.77, 0.01),
+  ('5 sssi edge', 'block 1 removed small_piece', 0.00, 0),
   ('5 sssi edge', 'block 1 meets_minimum', 1, 0), ('5 sssi edge', 'block 1 flag best_farmland', 4.77, 0.01),
   ('5 sssi edge', 'block 2 eligible_ha', 0.06, 0), ('5 sssi edge', 'block 2 meets_minimum', 0, 0),
   ('5 sssi edge', 'block 2 flag best_farmland', 0.06, 0),
   ('5 sssi edge', 'block 2 flag block_below_minimum', 1, 0),
-  ('5 sssi edge', 'one_off nature_recovery_lower', 5242, 3), ('5 sssi edge', 'one_off total', 5242, 3),
-  ('5 sssi edge', 'maintenance per_year', 1906, 1), ('5 sssi edge', 'maintenance 15y total', 28590, 15),
-  ('5 sssi edge', 'income total', 33832, 18), ('5 sssi edge', 'costs planting up_to', 48604, 3);
+  ('5 sssi edge', 'one_off nature_recovery_lower', 5239, 3), ('5 sssi edge', 'one_off total', 5239, 3),
+  ('5 sssi edge', 'maintenance per_year', 1905, 1), ('5 sssi edge', 'maintenance 15y total', 28577, 15),
+  ('5 sssi edge', 'income total', 33816, 18), ('5 sssi edge', 'costs planting up_to', 48581, 3);
 
 -- Run the engine once per case, timing each call.
 create temporary table results (id text, result jsonb, ms numeric);

@@ -1095,3 +1095,92 @@ records the date, what was decided, why, and the alternatives considered.
   "Contains public sector information licensed under the Open Government
   Licence v3.0", the standard OGL attribution, alongside the existing
   per-publisher credits.
+
+### D62. Pieces under 0.1 ha after removals are left out
+- **Date:** 2026-10-19
+- **What:** Migration `20261019180000`. After the exclusions, if what is
+  left of a field is in several separate pieces, each piece under
+  `min_block_eligible_ha` (0.1 ha) is left out as its own removal,
+  `small_piece` ("Piece under 0.1 ha"), with a shape on the map (vertical
+  hatching, scissors icon). Its label and explanation are in
+  `rules.messages` with the gov.uk source and date. A field that is one
+  small piece still gets the existing "under 0.1 ha" flag instead.
+  `screen_site()` fails closed if the wording is missing.
+- **Why:** gov.uk: the land must be "at least 1 hectare, which can be made
+  up of several compartments or blocks, each no smaller than 0.1 hectare".
+  Before, only a field's total was tested, so a field split into 0.06 ha +
+  0.06 ha by an exclusion passed at 0.12 ha.
+- **Effect on the standard sites:** only site 5 changes. Its SSSI cut leaves a
+  separate 22.9 m² sliver, now left out: one-off £5,242 → £5,239, upkeep
+  £1,906 → £1,905 a year, costs covered £48,604 → £48,581.
+  `test_screen_site.sql` is updated with the reason.
+- **Tests:** `scripts/sql/test_small_pieces.sql` (19 checks): a 30 m strip
+  across an isolated Scheduled Monument (about 553802, 252554) split into
+  two 0.08 ha pieces is left out entirely (it was paid before), and a longer
+  strip with 0.15 ha pieces is kept. Both are checked against pieces
+  recomputed from the layers.
+- **Not changed:** the 20 m minimum width stays a limitation, as asked.
+
+### D63. Protected sites outside SSSIs (analysis only)
+- **Date:** 2026-10-19
+- **What:** `scripts/analyse_protected_sites.sh` downloads Natural England's
+  Ramsar, SPA, SAC, NNR and LNR layers (Open Government Licence v3.0) for the
+  region's bounding box into git-ignored `data/raw/<region>/analysis/`,
+  compares them with the loaded SSSIs in a temporary schema of the local
+  database, and drops it. Services: `Ramsar_England`,
+  `Special_Protection_Areas_England` (the 2026 one; an older 2022 copy
+  exists), `Special_Areas_of_Conservation_England`,
+  `National_Nature_Reserves_England`, `Local_Nature_Reserves_England`.
+- **Result (2026-10-19), inside the region:**
+
+  | Designation | Area | Outside SSSIs |
+  |---|---|---|
+  | Ramsar | 3,810.9 ha | 0.0 ha |
+  | SPA | 3,191.7 ha | 0.0 ha |
+  | SAC | 1,274.4 ha | 0.0 ha |
+  | NNR | 1,340.5 ha | 0.6 ha |
+  | LNR | 309.9 ha | 213.5 ha (69%) |
+  | All five | 5,198.5 ha | 214.1 ha |
+
+  The largest LNR areas outside SSSIs are Coldham's Common (49.3 ha),
+  Sheep's Green and Coe Fen (16.9), Grimeshaw Wood (16.8), Mare Fen (16.3),
+  Lattersey Field (11.9), Eye Green (11.8) and Little Paxton Pits (11.5).
+- **Why:** In this region the SSSI exclusion already covers every Ramsar,
+  SPA and SAC, and all but 0.6 ha of NNRs, so adding those would change
+  nothing. LNRs are the only real gap. Nothing in the rules was changed:
+  whether to exclude or flag LNRs is a separate decision.
+
+### D64. Limitations: land control and existing agreements
+- **Date:** 2026-10-19
+- **What:** Two new limitations in `rules.messages`, each with its gov.uk
+  section and date checked (new `source_url` and `date_checked` columns):
+  - land control: management control for the whole agreement, landlord
+    agreement and countersigning for tenants, no land in a dispute in the
+    past 12 months (EWCO guidance 4 and 4.3);
+  - existing agreements: Environmental Stewardship, Countryside Stewardship
+    and Sustainable Farming Incentive are generally not compatible (only SFI
+    hedgerow options HRW1 to HRW3 are), and with more than 6 months left the
+    land must come out first, which can mean repaying some of it (EWCO
+    guidance 4.7).
+  The result's `sources` list now includes the limitations' pages.
+
+### D65. Forestry EIA as a third gov.uk source
+- **Date:** 2026-10-19
+- **What:** With the user's OK, "Environmental impact assessments for
+  woodland" (https://www.gov.uk/guidance/environmental-impact-assessments-for-woodland,
+  updated 18 October 2023) is a source alongside the two EWCO pages. One new
+  limitation: EIA consent is not checked; planting 0.5 ha or more counts as
+  afforestation under the forestry EIA regulations; larger projects and those
+  in sensitive areas are more likely to need consent; for a grant
+  application, the Forestry Commission advises not applying for an EIA
+  decision separately. Sources & rates links to the page.
+- **Why:** The limitations didn't mention EIA, and neither EWCO page names it.
+
+### Test results after D62–D65 (local)
+- **Date:** 2026-10-19
+- `verify_load.sql` 29/29 (two new row counts); `test_screen_site.sql` 92/92 plus both fail-closed
+  checks; `test_explain_context.sql` 47/47; `test_payment_details.sql` 33/33;
+  `test_small_pieces.sql` 19/19. Migration `20261019180000` applies cleanly
+  on top of `20261017130000` (rolled-back transaction).
+- Browser: the strip test shows "Piece under 0.1 ha" (0.16 ha) in Left out
+  with the vertical hatch on the map; site 1 unchanged (about £31,900).

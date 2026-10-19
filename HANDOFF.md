@@ -2,7 +2,7 @@
 
 Everything a new session needs to carry on without the previous
 conversation. Read this, then `AGENTS.md`, `README.md` and `DECISIONS.md`
-(61 numbered decisions, D1–D61, plus test-result notes).
+(65 numbered decisions, D1–D65, plus test-result notes).
 
 Last updated: 2026-10-17.
 
@@ -50,7 +50,7 @@ E47000008).
    questions; the user answers like "1a 2b 3 yes". Don't use pop-up question
    dialogs, which the user dismisses.
 2. **Log every decision in `DECISIONS.md`** with date, what, why and
-   alternatives. Continue the numbering from D62.
+   alternatives. Continue the numbering from D66.
 3. **Secret-scan before every commit.** No keys, passwords, `.env*` or
    `data/` files. A minimal check:
    `git diff --cached | grep -nE '(sb_secret_|eyJhbGciOi|gho_|ghp_|SUPABASE_[A-Z_]*KEY=[^<]|postgres(ql)?://[^@]*:[^@]*@)'`.
@@ -72,7 +72,8 @@ E47000008).
    Headline money is rounded to £100 and labelled "about". Income and costs
    covered are never added together. Ranges are shown honestly.
 9. **gov.uk content:** written only from the EWCO guidance and the
-   Additional contributions page. Don't invent requirements. Store wording
+   Additional contributions page, plus the forestry EIA guidance for EIA
+   (agreed 2026-10-19, D65). Don't invent requirements. Store wording
    in database tables with source links and a date checked.
 
 ---
@@ -161,12 +162,13 @@ matters:** the user runs `npx supabase db push` (and `verify_hosted.sh`)
 
 **SQL tests** (run against local):
 ```
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 27 pass
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql     # 91/91 + 2 fail-closed
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 29 pass
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql     # 92/92 + 2 fail-closed
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql # 47/47
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql # 33/33
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_small_pieces.sql    # 19/19
 ```
-- **Hosted (the user runs it):** `./scripts/verify_hosted.sh` runs all four
+- **Hosted (the user runs it):** `./scripts/verify_hosted.sh` runs all five
   against `DATABASE_URL` (the Session pooler string, set with
   `read -s "DATABASE_URL?…" && export DATABASE_URL`).
 - **Front end:** `npx tsc --noEmit -p . && npx eslint src scripts && npm run build`.
@@ -179,7 +181,7 @@ docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/
   | 2. Brampton Wood SSSI | 517904, 270037 | £0 |
   | 3. Fen | 532852, 285459 | £0, deep peat |
   | 4. Riparian | 529500, 261500 | £69,596 / £123,596 with access; £36,296 without |
-  | 5. SSSI edge | 542750, 246250, plus a 25 m block at 543060, 246250 | £5,242, 4.77 ha |
+  | 5. SSSI edge | 542750, 246250, plus a 25 m block at 543060, 246250 | £5,239, 4.76 ha (was £5,242 before D62) |
 
 - **Large-block case:** a 361 ha Huntingdon block centred on 524500,
   272500 (±950 m) gives a range of £335,144 to £495,851.
@@ -259,12 +261,22 @@ committed, but **not pushed**: D53–D59 in `DECISIONS.md` have the detail.
   `scripts/sql/test_payment_details.sql`.
 - **Start page (D58)** with a captured workspace preview and region outline.
 
-**To go live (needs the user):**
-1. `npx supabase db push` (applies `20261017130000`; it was tested in a
-   rolled-back transaction on top of the current hosted state).
-2. `./scripts/verify_hosted.sh` (now four suites; expect 27, 91 + 2, 47, 33).
-3. The user's OK to push to GitHub, which deploys on Vercel. Then check the
-   live site at desktop and phone widths.
+**Website: live** (pushed 2026-10-17, `0b6fc10` and `461a27b`). It works
+before and after the database update: without the new fields the panel just
+has no breakdowns.
+
+**Database: not yet updated (needs the user).** Two migrations are waiting:
+`20261017130000` (payment details, not on this land) and `20261019180000`
+(small pieces, more limitations, D62–D65). Each was tested in a rolled-back
+transaction on top of the one before.
+1. `npx supabase db push`.
+2. `./scripts/verify_hosted.sh` (five suites; expect 29, 92 + 2, 47, 33, 19).
+3. The D62–D65 commit is local; push it with the user's OK.
+
+**Later (2026-10-19):** small pieces under 0.1 ha left out (D62), protected
+sites analysis (D63: only Local Nature Reserves add land outside SSSIs,
+214 ha; nothing changed), limitations for land control, existing agreements
+and EIA (D64, D65; the forestry EIA page is now a third gov.uk source).
 
 **Small things noticed, not changed:**
 - The Step 2 question text says "£3,700 per hectare" in code (D60): update

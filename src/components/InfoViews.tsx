@@ -160,6 +160,11 @@ export function SourcesView({ result, onGoToWorkspace }: { result: ScreenResult 
               Additional contributions for EWCO
             </SourceLink>
           </li>
+          <li>
+            <SourceLink href="https://www.gov.uk/guidance/environmental-impact-assessments-for-woodland">
+              Environmental impact assessments for woodland
+            </SourceLink>
+          </li>
         </ul>
       </section>
 

@@ -9,6 +9,7 @@ import {
   Landmark,
   Layers,
   Receipt,
+  Scissors,
   ShieldCheck,
   Sprout,
   TreeDeciduous,
@@ -177,6 +178,7 @@ export const exclusionIcons: Record<string, LucideIcon> = {
   deep_peat: Layers,
   existing_woodland: Trees,
   developed_land: Building,
+  small_piece: Scissors,
 };
 
 export const flagIcons: Record<string, LucideIcon> = {
@@ -270,6 +272,10 @@ export const leftOutPhrase: Record<string, { because: string; mainly: string }> 
   developed_land: {
     because: "it is developed land (buildings, gardens or solar farms)",
     mainly: "developed land (buildings, gardens and solar farms)",
+  },
+  small_piece: {
+    because: "it is in separate pieces under 0.1 ha, the smallest a planting area can be",
+    mainly: "separate pieces under 0.1 ha",
   },
 };
 

@@ -143,7 +143,7 @@ curl -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/screen_site" \
 Rates, exclusions, flags and wording are rows in `rules.*` tables, not code.
 That includes what each payment entails (`rules.payment_details` and the
 `rules.payment_items` checklist), written only from the gov.uk EWCO guidance
-and Additional contributions pages, each line with its section and date
+and Additional contributions pages (and, for EIA, the forestry EIA guidance), each line with its section and date
 checked. The result returns them as `payment_details`, plus
 `not_on_this_land` for bonuses checked that don't reach the land.
 
@@ -153,7 +153,11 @@ Tests:
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql      # hand-worked values
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql  # ranges, site_context()
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql  # payment details, not on this land
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_small_pieces.sql     # pieces under 0.1 ha, limitations
 ```
+
+`./scripts/analyse_protected_sites.sh` compares Ramsar, SPA, SAC, NNR and LNR
+land with the SSSIs (local database only; see D63).
 
 The start page's workspace preview is captured with
 `node scripts/capture-preview.mjs public/workspace-preview.webp <fields.geojson>`
