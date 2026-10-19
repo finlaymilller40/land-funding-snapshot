@@ -1,5 +1,5 @@
 -- Check a database's layers and rules against the local reference load
--- (Cambridgeshire and Peterborough, downloads of 2026-10-15).
+-- (Cambridgeshire and Peterborough, ONS BFE boundary, downloads of 2026-10-19; D66).
 --
 -- Source features and areas must match. Piece counts may differ by up to 1%
 -- if the server's geometry library (GEOS) splits polygons slightly differently.
@@ -12,20 +12,20 @@
 
 create temporary table expected (layer_id text, pieces int, features int, ha numeric);
 insert into expected values
-  ('alc_provisional',               4019,    71, 339587.8),
-  ('developed_land',               59791, 59287,  29897.2),
-  ('ewco_flood_risk',              24516,  3991,  78867.2),
-  ('ewco_keeping_rivers_cool',      6973,  3716,  28193.3),
-  ('ewco_low_sensitivity',          1705,   970,  44291.5),
-  ('ewco_low_sensitivity_v4',       1732,   861,  45123.9),
-  ('ewco_nfc_social',                311,    40, 105208.6),
-  ('ewco_priority_habitat_network',11245,  3761, 216347.0),
-  ('ewco_water_quality',             136,     5, 125717.3),
-  ('nfi_woodland',                  5819,  4744,  12506.9),
-  ('peat_status',                  20388, 16727,  91844.8),
-  ('priority_habitat',             14489, 10907,  23499.5),
-  ('scheduled_monuments',            526,   338,   1726.2),
-  ('sssi',                           360,   103,   8014.6);
+  ('alc_provisional',                4016,    71,  339743.1),
+  ('developed_land',                59784, 59287,   29898.0),
+  ('ewco_flood_risk',               24516,  3991,   78874.0),
+  ('ewco_keeping_rivers_cool',       6973,  3716,   28200.2),
+  ('ewco_low_sensitivity',           1705,   970,   44291.5),
+  ('ewco_low_sensitivity_v4',        1732,   861,   45123.9),
+  ('ewco_nfc_social',                 309,    41,  105214.3),
+  ('ewco_priority_habitat_network', 11245,  3761,  216347.0),
+  ('ewco_water_quality',              123,     5,  125774.7),
+  ('nfi_woodland',                   5819,  4744,   12507.0),
+  ('peat_status',                   20357, 16835,   91888.5),
+  ('priority_habitat',              14467, 10908,   23516.4),
+  ('scheduled_monuments',             526,   338,    1726.2),
+  ('sssi',                            350,   103,    8099.0);
 
 \echo === Layers: expected vs this database ===
 with actual as (
@@ -47,14 +47,14 @@ order by 1;
 
 \echo === Region, rules and functions ===
 select 'region area (ha)' as check, round((extensions.st_area(geom) / 1e4)::numeric, 1)::text as value,
-       case when abs(extensions.st_area(geom) / 1e4 - 339587.8) <= 0.5 then 'pass' else 'FAIL' end as status
+       case when abs(extensions.st_area(geom) / 1e4 - 339743.1) <= 0.5 then 'pass' else 'FAIL' end as status
 from layers.regions where id = 'cambridgeshire-and-peterborough'
 union all select 'rules.ewco_rates rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.ewco_rates
 union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 6 then 'pass' else 'FAIL' end from rules.ewco_exclusions
 union all select 'rules.ewco_flags rows', count(*)::text, case when count(*) = 2 then 'pass' else 'FAIL' end from rules.ewco_flags
-union all select 'rules.settings rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.settings
--- 15 messages after migration 20261019180000 (small_piece and three limitations).
-union all select 'rules.messages rows', count(*)::text, case when count(*) = 15 then
+union all select 'rules.settings rows', count(*)::text, case when count(*) = 12 then 'pass' else 'FAIL' end from rules.settings
+-- 16 messages after migration 20261019200000 (small_piece, outside_region, three limitations).
+union all select 'rules.messages rows', count(*)::text, case when count(*) = 16 then
   'pass' else 'FAIL' end from rules.messages
 union all select 'rules.guidance_steps rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.guidance_steps
 union all select 'rules.payment_details rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.payment_details

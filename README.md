@@ -154,6 +154,7 @@ docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql  # ranges, site_context()
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql  # payment details, not on this land
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_small_pieces.sql     # pieces under 0.1 ha, limitations
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_region_edge.sql      # BFE boundary, land outside left out
 ```
 
 `./scripts/analyse_protected_sites.sh` compares Ramsar, SPA, SAC, NNR and LNR

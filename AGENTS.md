@@ -39,6 +39,7 @@ there.
   - `scripts/sql/test_explain_context.sql`;
   - `scripts/sql/test_payment_details.sql`;
   - `scripts/sql/test_small_pieces.sql`;
+  - `scripts/sql/test_region_edge.sql`;
   - `npx tsc --noEmit -p .`, `npx eslint src scripts`, `npm run build`.
 
   Check UI changes in a browser at desktop and phone widths.

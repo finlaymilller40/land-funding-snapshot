@@ -64,10 +64,10 @@ export function BlockList({ blocks, onRename, onDelete, onShow }: Props) {
               </Button>
             </div>
             {b.outsideHa > 0 && (
-              <p className="mt-2 rounded-md bg-warn-bg px-3 py-2 text-xs font-semibold text-warn-text" role="alert">
+              <p className="mt-2 rounded-md bg-warn-bg px-3 py-2 text-xs font-semibold text-warn-text" role="status">
                 {b.outsideHa >= b.ha - 0.01
-                  ? "This field is outside the area we cover. Move or delete it to continue."
-                  : `${hectares(b.outsideHa)} of this field is outside the area we cover. Edit or delete it to continue.`}
+                  ? "This field is outside the area we cover, so it will be left out. Move or delete it."
+                  : `About ${hectares(b.outsideHa)} of this field is outside the area we cover and will be left out.`}
               </p>
             )}
             {!b.editable && (

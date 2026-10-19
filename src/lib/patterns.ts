@@ -4,7 +4,7 @@ import { EXCLUSION_COLOUR } from "@/lib/wording";
 // Hatch patterns that tell the exclusions apart (they share one colour).
 // The same spec draws the MapLibre `fill-pattern` images and the CSS legend
 // swatches, so the key always matches the map.
-type Hatch = "forward" | "back" | "cross" | "dots" | "horizontal" | "grid" | "vertical";
+type Hatch = "forward" | "back" | "cross" | "dots" | "horizontal" | "grid" | "vertical" | "none";
 
 export const exclusionHatch: Record<string, Hatch> = {
   sssi: "forward",
@@ -14,6 +14,8 @@ export const exclusionHatch: Record<string, Hatch> = {
   existing_woodland: "back",
   developed_land: "grid",
   small_piece: "vertical",
+  // Outside the region: tint only; the map already shades everything outside.
+  outside_region: "none",
 };
 
 const SIZE = 10; // CSS pixels per tile
@@ -86,6 +88,7 @@ export function hatchBackground(code: string): string {
     vertical: `repeating-linear-gradient(90deg, ${c} 0 1.5px, transparent 1.5px 5px)`,
     grid: `repeating-linear-gradient(0deg, ${c} 0 1.5px, transparent 1.5px 5px), repeating-linear-gradient(90deg, ${c} 0 1.5px, transparent 1.5px 5px)`,
     dots: `radial-gradient(${c} 1.4px, transparent 1.6px) 0 0 / 5px 5px`,
+    none: "linear-gradient(transparent, transparent)",
   };
   return `${layers[hatch]}, ${tint}`;
 }

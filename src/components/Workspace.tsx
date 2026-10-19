@@ -199,10 +199,8 @@ export function Workspace() {
       setMapError("Draw at least one field, or upload a file, to continue.");
       return;
     }
-    if (listed.some((b) => b.outsideHa > 0)) {
-      setMapError("Some of your land is outside the area we cover. Edit or delete those fields to continue.");
-      return;
-    }
+    // Land outside the region is left out by the server, which refuses a site
+    // that is entirely or mostly outside (rules.settings.max_outside_share_pct).
     setPhase("question");
   }
 

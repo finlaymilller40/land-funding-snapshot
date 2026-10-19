@@ -8,6 +8,7 @@ import {
   Footprints,
   Landmark,
   Layers,
+  MapPinOff,
   Receipt,
   Scissors,
   ShieldCheck,
@@ -179,6 +180,7 @@ export const exclusionIcons: Record<string, LucideIcon> = {
   existing_woodland: Trees,
   developed_land: Building,
   small_piece: Scissors,
+  outside_region: MapPinOff,
 };
 
 export const flagIcons: Record<string, LucideIcon> = {
@@ -276,6 +278,10 @@ export const leftOutPhrase: Record<string, { because: string; mainly: string }> 
   small_piece: {
     because: "it is in separate pieces under 0.1 ha, the smallest a planting area can be",
     mainly: "separate pieces under 0.1 ha",
+  },
+  outside_region: {
+    because: "it is outside the area we cover",
+    mainly: "land outside the area we cover",
   },
 };
 

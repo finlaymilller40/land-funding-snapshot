@@ -1184,3 +1184,78 @@ records the date, what was decided, why, and the alternatives considered.
   on top of `20261017130000` (rolled-back transaction).
 - Browser: the strip test shows "Piece under 0.1 ha" (0.16 ha) in Left out
   with the vertical hatch on the map; site 1 unchanged (about £31,900).
+
+### D66. Region boundary: ONS BFE (full extent) instead of BFC (clipped)
+- **Date:** 2026-10-19
+- **What:** `config/regions/cambridgeshire-and-peterborough.json` now uses
+  ONS Combined Authorities (December 2025) Boundaries EN **BFE** (layer 0)
+  instead of **BFC** (layer 1). The region and all 14 layers were re-downloaded
+  and reloaded (layers are clipped to the region when loaded).
+- **Why:** BFC is clipped to the coastline, so it leaves out tidal water: the
+  tidal River Nene (from just east of Peterborough to the north edge near
+  Wisbech, about 22 km by 30 m) and the tidal channel from Earith to the
+  eastern edge (about 22 km by 21 m). They were open to the outside, so the
+  map drew their banks as dashed lines inside the region, and any field
+  drawn over or across them was refused. Points in both channels are outside
+  BFC and inside BFE (checked against the ONS service).
+- **Effect:** the region grows from 3,395.9 to 3,397.4 km² (+1.5 km², the
+  two channels). Both inlets are gone from the stored boundary and from
+  `region_outline()`. The fresh downloads (2026-10-19) also picked up small
+  source updates since 15 October (for example England Peat Status 16,727 →
+  16,835 features, NfC Social 40 → 41, priority habitat +1), so
+  `verify_load.sql` has a new reference. Every hand-worked value in the
+  screening tests is unchanged. The start page outline was regenerated.
+- **Alternatives:** fill inlets under about 40 m when loading the region (our
+  own geometry rather than ONS's).
+
+### D67. Land outside the region is left out; mostly-outside sites refused
+- **Date:** 2026-10-19
+- **What:** Migration `20261019200000`.
+  - `parse_site()` refuses a site only when more than
+    `max_outside_share_pct` (50%) of its drawn area is outside the region
+    (entirely or mostly outside). Before, more than 1 m² outside was refused.
+  - `screen_site()` first cuts each field to the region. The part outside is
+    a removal, `outside_region` ("Outside the area we cover", wording in
+    `rules.messages`), with a shape (tint only: the map already shades
+    outside the region). Both fail closed if the setting or wording is missing.
+  - The website no longer stops you continuing with a field partly outside;
+    it says how much will be left out. A mostly-outside site gets "Most of
+    your land is outside the area we cover".
+- **Why:** People drawing along the region's edge (or, before D66, a river)
+  were refused outright for a sliver.
+- **Tests:** `scripts/sql/test_region_edge.sql` (18 checks): both channel
+  points inside the region; a 300 m field across the Nene accepted with
+  nothing outside; squares at the western edge about 30% outside (accepted,
+  outside part left out and matching an independent calculation) and about
+  80% outside (refused); a square entirely outside (refused); a site with
+  one 1 ha field outside and site 1's 9 ha inside (accepted, the outside
+  field left out, site 1 still £31,871); failing closed.
+
+### D68. Open water is not removed (finding, not changed)
+- **Date:** 2026-10-19
+- **What:** None of the six exclusions removes open water, so rivers, lakes
+  and gravel pits count as plantable unless another exclusion covers them
+  (for example the Ouse Washes SSSI). With D66 the tidal channels are inside
+  the region, so a field drawn over them now counts the water as plantable.
+  Checked: a 300 m field across the tidal Nene (at 540789, 304326) now
+  counts the river's centre as plantable (and the farmland-grade map even
+  marks it Grade 1). A 300 m field across the Earith channel is entirely
+  removed by the Ouse Washes SSSI, priority habitat and deep peat.
+- **Layer that would cover it:** Natural England's Living England 2022–23
+  habitat map, class "Water", from the same service and zones as
+  `developed_land` (zone 7 returns "Water" at both channels). It would be a
+  seventh exclusion or a widened developed-land filter. The EWCO pages don't
+  list water as ineligible, so it would be a screening exclusion like SSSIs.
+- **Decision needed from the user.**
+
+### Test results after D66–D68 (local)
+- **Date:** 2026-10-19
+- Region and all 14 layers reloaded with the BFE boundary (fresh downloads).
+- `verify_load.sql` 29/29 (new reference); `test_screen_site.sql` 92/92 plus
+  both fail-closed checks; `test_explain_context.sql` 47/47;
+  `test_payment_details.sql` 33/33; `test_small_pieces.sql` 19/19;
+  `test_region_edge.sql` 18/18.
+- Browser: a field 30% over the western edge can continue ("About 1.15 ha …
+  will be left out"), and the estimate leaves out 1.22 ha as "Outside the
+  area we cover" (the browser uses the 10 m simplified outline); the map has
+  no lines inside the region.

@@ -140,8 +140,9 @@ const knownErrors: { match: RegExp; error: FriendlyError }[] = [
   {
     match: /outside the area we have data for/,
     error: {
-      title: "Part of your land is outside the area we cover",
-      detail: "This prototype only covers Cambridgeshire and Peterborough. Move or delete any field outside the green outline.",
+      title: "Most of your land is outside the area we cover",
+      detail:
+        "This prototype only covers Cambridgeshire and Peterborough. Move your fields inside the dashed green outline. A small part outside is fine: it is just left out.",
       action: "map",
     },
   },
