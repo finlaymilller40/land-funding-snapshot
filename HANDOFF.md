@@ -2,7 +2,7 @@
 
 Everything a new session needs to carry on without the previous
 conversation. Read this, then `AGENTS.md`, `README.md` and `DECISIONS.md`
-(69 numbered decisions, D1–D69, plus test-result notes).
+(71 numbered decisions, D1–D71, plus test-result notes).
 
 Last updated: 2026-10-17.
 
@@ -50,7 +50,7 @@ E47000008, the BFE "full extent" boundary since D66).
    questions; the user answers like "1a 2b 3 yes". Don't use pop-up question
    dialogs, which the user dismisses.
 2. **Log every decision in `DECISIONS.md`** with date, what, why and
-   alternatives. Continue the numbering from D70.
+   alternatives. Continue the numbering from D72.
 3. **Secret-scan before every commit.** No keys, passwords, `.env*` or
    `data/` files. A minimal check:
    `git diff --cached | grep -nE '(sb_secret_|eyJhbGciOi|gho_|ghp_|SUPABASE_[A-Z_]*KEY=[^<]|postgres(ql)?://[^@]*:[^@]*@)'`.
@@ -165,7 +165,7 @@ matters:** the user runs `npx supabase db push` (and `verify_hosted.sh`)
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/verify_load.sql          # 30 pass
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_screen_site.sql     # 92/92 + 2 fail-closed
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_explain_context.sql # 47/47
-docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql # 33/33
+docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_payment_details.sql # 39/39
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_small_pieces.sql    # 19/19
 docker exec -i supabase_db_land-funding-snapshot psql -U postgres < scripts/sql/test_region_edge.sql     # 21/21
 ```
@@ -266,9 +266,9 @@ committed, but **not pushed**: D53–D59 in `DECISIONS.md` have the detail.
 before and after the database update: without the new fields the panel just
 has no breakdowns.
 
-**Database: not yet updated (needs the user).** Four migrations are
+**Database: not yet updated (needs the user).** Five migrations are
 waiting (`20261017130000`, `20261019180000`, `20261019200000`,
-`20261019210000`), plus a reload of the BFE region and all 15 layers (the
+`20261019210000`, `20261020100000`), plus a reload of the BFE region and all 15 layers (the
 new one is `open_water`).
 
 **Hosted steps, in order (the user runs 1–4; they need the password):**
@@ -278,7 +278,7 @@ new one is `open_water`).
 3. `npm run load-layers -- --refresh` (about 15–20 minutes): the BFE region
    and all 15 layers, downloaded fresh.
 4. `./scripts/verify_hosted.sh` (six suites; expect 30, 92 + 2 fail-closed,
-   47, 33, 19, 21). If a source changed after 2026-10-19 the layer counts
+   47, 39, 19, 21). If a source changed after 2026-10-19 the layer counts
    will differ slightly.
 5. Push the local commits (with the user's OK), then check the live site.
 
@@ -295,6 +295,10 @@ and EIA (D64, D65; the forestry EIA page is now a third gov.uk source).
   this.
 
 ## 7. Open items
+
+- **Split a field at a target area (option C, D71):** a helper that draws the
+  part of a field inside a bonus target area as its own field, so users can
+  model a compartment and see the narrower figure for that design.
 - **Commit `3e9a843`** (and the handoff commit) is local; push only with the
   user's OK.
 - **Phase 4: AI explanations.** AI explains results only; it never decides

@@ -1310,3 +1310,86 @@ records the date, what was decided, why, and the alternatives considered.
   case: `screen_site()` 194 ms locally.
 - Browser: the Nene field lists "Open water 0.92 ha" and the map shows the
   channel with the ripple pattern.
+
+### D70. "How EWCO pays you" explainer
+- **Date:** 2026-10-20
+- **What:** A collapsible block, open by default, at the top of the Summary,
+  above the figures. Three lines, each with a "→" button that scrolls the
+  panel to its figure:
+  - **Planting costs:** paid back against standard costs for each item of
+    work, up to a maximum, averaged across the whole woodland. You claim as
+    work is done, at least £5,000 at a time, within 3 years. (G 7.1, 7.1.2:
+    the cap is "an average of £10,200 per hectare over the gross area of the
+    application, including any open space".)
+  - **Yearly upkeep:** £400 per hectare a year for 15 years, paid each
+    autumn. Payments start once all planting work is claimed; you claim again
+    in years 6 and 11. (G 7.2. The rate and years are filled in from
+    `rules.ewco_rates`.)
+  - **One-off bonuses:** for land in target areas such as nature recovery or
+    flood reduction. Paid once, with your final planting claim. This is what
+    can make the range wide. (A introduction, G 7.4; the last sentence
+    explains our estimate.) When the lower-risk land payment applies it adds
+    "The lower-risk land payment comes after all other work is claimed."
+    (G 7.5)
+- **Storage:** the lines are rows in `rules.messages` with a new kind,
+  `how_paid`, each with its gov.uk section and date checked. `screen_site()`
+  returns them as `how_paid` (migration `20261020100000`). Older databases
+  without it simply don't show the block.
+- **Why buttons, not links:** a URL hash fires `popstate`, which the
+  workspace uses for back and forward between steps, so a plain anchor sent
+  the user back to Step 1 (found in testing). The buttons scroll only the
+  panel and move focus to the figure.
+- **Wording:** agreed with the user before building, with the user's
+  changes to the upkeep and cap lines.
+
+### D71. Bonuses explained per compartment, with two scenarios
+- **Date:** 2026-10-20
+- **What:** No rule changes (option A; option B was declined).
+  - The "touches the target area" rule is described per **compartment**, not
+    per field: "Bonuses are paid per compartment: a planting area in your
+    woodland plan, which your Woodland Officer helps you prepare. If a
+    compartment touches a target area, all of it is paid. The riverside shade
+    bonus is the exception: only the part inside its strip is paid."
+    (A introduction "assessed by compartment", A spatial targeting "must
+    touch", nature recovery "touches the compartment or block", G 7.4 "per
+    compartment", A 4.1, G 10.2.) Stored as `compartment_rule` in
+    `rules.messages`.
+  - The one-off headline is two labelled figures: "At least about £X: if
+    each bonus is paid only on the land inside its target area" and "Up to
+    about £Y: if each field you drew is one compartment that touches the
+    target area". The 15-year line follows the same pattern. One figure when
+    they round to the same £100.
+  - Each bonus with a range shows two scenarios: "£400 if just the 0.4 ha
+    inside is planted as its own compartment" and "£9,000 if the whole field
+    is one compartment that touches the area" ("each field" when there are
+    several, with the per-field list below).
+  - The large-field warning (`rules.messages.large_block`) now says
+    "compartment" and uses the same definition, replacing "designed with a
+    Woodland Officer", which gov.uk doesn't say.
+- **Why:** With 5% inside, the range ran from about £2,400 to £67,400, with
+  only "the lower figure… the higher one…" to explain it. gov.uk applies the
+  rule to compartments (the planting areas in the woodland design), not to
+  RPA land parcels. RPA parcel boundaries aren't published openly (only
+  parcel centre points).
+- **Later (option C, not built):** a "Split this field at the target area"
+  helper that draws the overlapping part as its own field, so users can
+  model a compartment themselves. Noted in HANDOFF.md.
+- **Tests:** six new checks in `test_payment_details.sql` (39 in total): the
+  `how_paid` lines in order, the upkeep line filled from the rates table,
+  gov.uk sources and dates, the agreed compartment definition, the
+  large-field warning saying "compartment", and none of these appearing as
+  limitations. `verify_load.sql` expects 22 messages.
+
+### Test results after D70–D71 (local)
+- **Date:** 2026-10-20
+- `verify_load.sql` 30/30; `test_screen_site.sql` 92/92 plus both
+  fail-closed checks; `test_explain_context.sql` 47/47;
+  `test_payment_details.sql` 39/39; `test_small_pieces.sql` 19/19;
+  `test_region_edge.sql` 21/21. Type check, lint and build pass.
+- Browser, on a 9 ha field with 4% in the near-towns area: the explainer
+  shows the three agreed lines; the headline reads "At least about £21,400"
+  and "Up to about £58,500" with their conditions; the public access bonus
+  shows "£1,396 if just the 0.38 ha inside…" and "£33,300 if the whole
+  field…"; "→ Costs covered" scrolls the panel to the figure and keeps the
+  results open.
+

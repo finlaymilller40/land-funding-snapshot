@@ -157,7 +157,39 @@ insert into checks select '2 sssi', 'below minimum: empty not_on_this_land and d
   jsonb_array_length(j -> 'not_on_this_land') = 0 and j -> 'payment_details' = '{}'::jsonb
 from res where id = '2 sssi';
 
--- 3. Privileges ------------------------------------------------------------------
+-- 3. "How EWCO pays you" and the compartment rule (D70) -------------------------
+insert into checks select '1 fine', 'how_paid lines in order',
+  'how_paid_costs,how_paid_upkeep,how_paid_bonuses,how_paid_low_sensitivity,compartment_rule',
+  (select string_agg(x ->> 'code', ',') from jsonb_array_elements(j -> 'how_paid') x),
+  (select string_agg(x ->> 'code', ',') from jsonb_array_elements(j -> 'how_paid') x)
+    = 'how_paid_costs,how_paid_upkeep,how_paid_bonuses,how_paid_low_sensitivity,compartment_rule'
+from res where id = '1 fine';
+-- The upkeep rate and years come from rules.ewco_rates, not the text.
+insert into checks select '1 fine', 'upkeep line filled from the rates table',
+  'starts £' || to_char(r.rate_gbp, 'FM999,999') || ' per hectare a year for ' || r.years || ' years',
+  left(x ->> 'text', 50),
+  (x ->> 'text') like '£' || to_char(r.rate_gbp, 'FM999,999') || ' per hectare a year for ' || r.years || ' years%'
+from res, jsonb_array_elements(j -> 'how_paid') x, rules.ewco_rates r
+where id = '1 fine' and x ->> 'code' = 'how_paid_upkeep' and r.code = 'maintenance';
+insert into checks select 'content', 'how_paid lines have a gov.uk source and date', '0 missing', count(*) || ' missing', count(*) = 0
+from rules.messages where kind = 'how_paid'
+  and (split_part(source_url, '#', 1) not in (
+         'https://www.gov.uk/guidance/england-woodland-creation-offer',
+         'https://www.gov.uk/government/publications/apply-for-the-england-woodland-creation-offer/additional-contributions-for-ewco')
+       or date_checked is null);
+insert into checks select 'content', 'compartment rule uses the agreed definition', 'present',
+  case when text like '%a planting area in your woodland plan, which your Woodland Officer helps you prepare%' then 'present' else 'missing' end,
+  text like '%a planting area in your woodland plan, which your Woodland Officer helps you prepare%'
+from rules.messages where code = 'compartment_rule';
+insert into checks select 'content', 'large-field warning says compartment, not field', 'compartment to touch',
+  case when text like '%compartment to touch%' and text not like '%field to touch%' then 'compartment to touch' else text end,
+  text like '%compartment to touch%' and text not like '%field to touch%'
+from rules.messages where code = 'large_block';
+insert into checks select '1 fine', 'how_paid lines are not limitations', '0', count(*)::text, count(*) = 0
+from res, jsonb_array_elements_text(j -> 'limitations') l
+where id = '1 fine' and l in (select text from rules.messages where kind = 'how_paid');
+
+-- 4. Privileges ------------------------------------------------------------------
 insert into checks select 'privileges', 'anon cannot run payment_details_for', 'false',
   has_function_privilege('anon', 'rules.payment_details_for(text[])', 'execute')::text,
   not has_function_privilege('anon', 'rules.payment_details_for(text[])', 'execute');

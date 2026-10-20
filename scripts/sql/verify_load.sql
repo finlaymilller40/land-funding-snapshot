@@ -54,8 +54,8 @@ union all select 'rules.ewco_rates rows', count(*)::text, case when count(*) = 1
 union all select 'rules.ewco_exclusions rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.ewco_exclusions
 union all select 'rules.ewco_flags rows', count(*)::text, case when count(*) = 2 then 'pass' else 'FAIL' end from rules.ewco_flags
 union all select 'rules.settings rows', count(*)::text, case when count(*) = 12 then 'pass' else 'FAIL' end from rules.settings
--- 17 messages after migration 20261019210000 (small_piece, outside_region, four limitations).
-union all select 'rules.messages rows', count(*)::text, case when count(*) = 17 then
+-- 22 messages after migration 20261020100000 (adds four how_paid lines and the compartment rule).
+union all select 'rules.messages rows', count(*)::text, case when count(*) = 22 then
   'pass' else 'FAIL' end from rules.messages
 union all select 'rules.guidance_steps rows', count(*)::text, case when count(*) = 7 then 'pass' else 'FAIL' end from rules.guidance_steps
 union all select 'rules.payment_details rows', count(*)::text, case when count(*) = 11 then 'pass' else 'FAIL' end from rules.payment_details

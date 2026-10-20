@@ -1,11 +1,12 @@
 "use client";
 
-import { RotateCcw, TriangleAlert } from "lucide-react";
+import { ChevronRight, RotateCcw, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { PanelSection } from "@/components/PanelSection";
 import { NotHereRow, PaymentRow, type PaymentGroup } from "@/components/PaymentRow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
 import { aboutMoney, hectares, money } from "@/lib/format";
 import { hatchBackground } from "@/lib/patterns";
@@ -89,11 +90,6 @@ function costsGroup(result: ScreenResult): PaymentGroup | null {
   };
 }
 
-function range(low: number, high: number): string {
-  if (Math.round(low / 100) === Math.round(high / 100)) return aboutMoney(high);
-  return `${aboutMoney(low)} to ${aboutMoney(high).replace("about ", "")}`;
-}
-
 export function ResultsPanel({
   result,
   updating,
@@ -118,6 +114,7 @@ export function ResultsPanel({
   const maint = income.annual_maintenance;
   const hasRange = income.one_off_low_gbp < income.one_off_total_gbp;
   const eligibleHa = summary.eligible_ha;
+  const compartmentRule = result.how_paid.find((l) => l.code === "compartment_rule");
 
   const notApplied = new Map<string, { payment: string; reason: string; total: number; low: number }>();
   for (const b of result.blocks)
@@ -193,28 +190,48 @@ export function ResultsPanel({
         <p className="text-base">{plainSummary(result)}</p>
         {summary.meets_site_minimum ? (
           <>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-line bg-white p-3">
-                <p className="text-xs text-muted">One-off bonuses</p>
-                <p className="text-2xl font-bold tabular-nums">{range(income.one_off_low_gbp, income.one_off_total_gbp).replace("about ", "")}</p>
-                <p className="text-xs text-muted">about, paid once</p>
-              </div>
-              <div className="rounded-lg border border-line bg-white p-3">
-                <p className="text-xs text-muted">Yearly upkeep</p>
-                <p className="text-2xl font-bold tabular-nums">{aboutMoney(maint.per_year_gbp).replace("about ", "")}</p>
-                <p className="text-xs text-muted">about, a year for {maint.years ?? 15} years</p>
-              </div>
+            <HowEwcoPays lines={result.how_paid} showLowSensitivity={oneOff.some((g) => g.code === "low_sensitivity")} />
+            <div id="fig-bonuses" tabIndex={-1} className="mt-3 scroll-mt-4 rounded-lg border border-line bg-white p-3">
+              <p className="text-xs text-muted">One-off bonuses</p>
+              {hasRange ? (
+                <div className="mt-1 space-y-2">
+                  <p>
+                    <span className="block text-xl font-bold tabular-nums">At least {aboutMoney(income.one_off_low_gbp)}</span>
+                    <span className="text-xs text-muted">if each bonus is paid only on the land inside its target area.</span>
+                  </p>
+                  <p>
+                    <span className="block text-xl font-bold tabular-nums">Up to {aboutMoney(income.one_off_total_gbp)}</span>
+                    <span className="text-xs text-muted">
+                      if each field you drew is one compartment that touches the target area.
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold tabular-nums">{aboutMoney(income.one_off_total_gbp).replace("about ", "")}</p>
+                  <p className="text-xs text-muted">about, paid once</p>
+                </>
+              )}
+            </div>
+            <div id="fig-upkeep" tabIndex={-1} className="mt-3 scroll-mt-4 rounded-lg border border-line bg-white p-3">
+              <p className="text-xs text-muted">Yearly upkeep</p>
+              <p className="text-2xl font-bold tabular-nums">{aboutMoney(maint.per_year_gbp).replace("about ", "")}</p>
+              <p className="text-xs text-muted">about, a year for {maint.years ?? 15} years</p>
             </div>
             <p className="mt-3 text-sm">
-              Over {maint.years ?? 15} years: <strong>{range(income.total_income_low_gbp, income.total_income_gbp)}</strong> in
-              income.
+              Over {maint.years ?? 15} years:{" "}
+              {hasRange ? (
+                <>
+                  at least <strong>{aboutMoney(income.total_income_low_gbp)}</strong>, up to{" "}
+                  <strong>{aboutMoney(income.total_income_gbp)}</strong> in income.
+                </>
+              ) : (
+                <>
+                  <strong>{aboutMoney(income.total_income_gbp)}</strong> in income.
+                </>
+              )}
             </p>
-            {hasRange && (
-              <p className="mt-1 text-sm text-muted">
-                The lower figure pays each bonus only on the land inside its target area; the higher one follows the
-                scheme rule that a field touching a target area is paid on all of it.
-              </p>
-            )}
+            {compartmentRule && oneOff.length > 0 && <p className="mt-1 text-sm text-muted">{compartmentRule.text}</p>}
             {summary.has_large_block && (
               <p className="mt-2 flex gap-2 rounded-lg bg-warn-bg p-3 text-sm font-semibold text-warn-text">
                 <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
@@ -222,7 +239,7 @@ export function ResultsPanel({
                 would get. Try drawing your individual fields.
               </p>
             )}
-            <div className="mt-3 rounded-lg border border-dashed border-muted/60 p-3">
+            <div id="fig-costs" tabIndex={-1} className="mt-3 scroll-mt-4 rounded-lg border border-dashed border-muted/60 p-3">
               <p className="text-sm">
                 <span className="font-semibold">Costs covered, not income:</span> planting costs paid back up to{" "}
                 <strong className="tabular-nums">{aboutMoney(result.costs_covered.planting_costs_up_to_gbp)}</strong>.
@@ -483,6 +500,63 @@ export function ResultsPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Scroll the panel (not the page) to a figure and move focus to it. A URL hash
+ * would fire popstate, which the workspace uses to step back to the start.
+ */
+function goToFigure(id: string) {
+  const el = document.getElementById(id);
+  const box = el?.closest<HTMLElement>("[data-panel-scroll]");
+  if (!el || !box) return;
+  const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 12;
+  box.scrollTo({ top, behavior: "smooth" });
+  el.focus({ preventScroll: true });
+}
+
+/** Where each figure points in the summary, for the explainer's links. */
+const HOW_PAID_FIGURE: Record<string, { id: string; label: string }> = {
+  how_paid_costs: { id: "fig-costs", label: "Costs covered" },
+  how_paid_upkeep: { id: "fig-upkeep", label: "Yearly upkeep" },
+  how_paid_bonuses: { id: "fig-bonuses", label: "One-off bonuses" },
+};
+
+/** "How EWCO pays you": three lines from the database, each pointing to its figure. Open by default. */
+function HowEwcoPays({ lines, showLowSensitivity }: { lines: ScreenResult["how_paid"]; showLowSensitivity: boolean }) {
+  const [open, setOpen] = useState(true);
+  const main = lines.filter((l) => HOW_PAID_FIGURE[l.code]);
+  if (main.length === 0) return null;
+  const lowSensitivity = lines.find((l) => l.code === "how_paid_low_sensitivity");
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-4 rounded-lg bg-paper">
+      <CollapsibleTrigger className="flex min-h-9 w-full items-center gap-2 px-3 py-2 text-left text-sm font-semibold coarse:min-h-11">
+        <ChevronRight aria-hidden="true" className={cn("size-4 shrink-0 text-muted transition-transform", open && "rotate-90")} />
+        How EWCO pays you
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="space-y-2 px-3 pb-3 text-sm">
+          {main.map((l) => {
+            const fig = HOW_PAID_FIGURE[l.code];
+            return (
+              <li key={l.code}>
+                <strong>{l.label}:</strong> {l.text}
+                {l.code === "how_paid_bonuses" && showLowSensitivity && lowSensitivity && <> {lowSensitivity.text}</>}{" "}
+                <button
+                  type="button"
+                  onClick={() => goToFigure(fig.id)}
+                  className="whitespace-nowrap text-moss underline"
+                  aria-label={`Go to ${fig.label}`}
+                >
+                  → {fig.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

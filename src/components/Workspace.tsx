@@ -465,7 +465,7 @@ export function Workspace() {
         </main>
         {!isMobile && (
           <aside aria-label={viewLabel} className="hidden w-[400px] shrink-0 flex-col border-l border-line bg-white lg:flex">
-            <div ref={panelRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <div ref={panelRef} data-panel-scroll className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
               {panel}
             </div>
           </aside>

@@ -250,6 +250,7 @@ export function PhoneDrawer({
           <div
             ref={scrollRef}
             data-vaul-no-drag
+            data-panel-scroll
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4"
             style={{ paddingBottom: HIDDEN_PAD[snap] }}
           >

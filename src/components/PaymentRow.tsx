@@ -62,22 +62,63 @@ function rateText(g: PaymentGroup): string {
   return `${rate}, paid once.`;
 }
 
-function howCalculated(g: PaymentGroup, eligibleHa: number): string {
+/**
+ * How a bonus is worked out for this land. For "touches" bonuses with a range,
+ * the two ends are shown as compartment scenarios (D70).
+ */
+function HowCalculated({ g }: { g: PaymentGroup }) {
   if (g.kind === "annual") {
-    return `On the ${hectares(g.ha)} you could plant: ${money(g.total)} a year, ${money(g.total * (g.years ?? 15))} over ${g.years ?? 15} years.`;
+    return (
+      <p className="mt-1 text-muted">
+        On the {hectares(g.ha)} you could plant: {money(g.total)} a year, {money(g.total * (g.years ?? 15))} over{" "}
+        {g.years ?? 15} years.
+      </p>
+    );
   }
-  if (g.kind === "costs_covered") return `On the ${hectares(g.ha)} you could plant: up to ${money(g.total)} in costs paid back.`;
+  if (g.kind === "costs_covered") {
+    return <p className="mt-1 text-muted">On the {hectares(g.ha)} you could plant: up to {money(g.total)} in costs paid back.</p>;
+  }
   if (g.qualification === "area_inside") {
-    return `Only the ${hectares(g.insideHa)} inside the target area is paid: ${money(g.total)}.`;
+    return (
+      <p className="mt-1 text-muted">
+        Only the {hectares(g.insideHa)} inside the strip is paid, mapped as its own compartment: {money(g.total)}.
+      </p>
+    );
   }
   if (g.qualification === "whole_site_inside") {
-    return `On all ${hectares(g.ha)} you could plant, because it is all inside the area: ${money(g.total)}.`;
+    return (
+      <p className="mt-1 text-muted">
+        On all {hectares(g.ha)} you could plant, because it is all inside the area: {money(g.total)}.
+      </p>
+    );
   }
-  const whole = `A field that touches the target area is paid on all of it: ${hectares(g.ha)} gives ${money(g.total)}.`;
-  if (g.low < g.total) {
-    return `${whole} Paid only on the ${hectares(g.insideHa)} inside, it would be ${money(g.low)}, so we show both.`;
+  const several = g.perBlock.length > 1;
+  if (g.low >= g.total) {
+    return (
+      <p className="mt-1 text-muted">
+        All {hectares(g.insideHa)} is inside the target area: {money(g.total)}.
+      </p>
+    );
   }
-  return g.ha < eligibleHa - 0.005 ? `${whole} Fields that don't touch it get nothing.` : whole;
+  const pct = g.ha > 0 ? Math.round((100 * g.insideHa) / g.ha) : 0;
+  return (
+    <div className="mt-1 text-muted">
+      <p>
+        Only {hectares(g.insideHa)} ({pct}%) of {several ? "these fields" : "this field"} is inside the target area.
+      </p>
+      <ul className="mt-1 list-disc space-y-0.5 pl-5">
+        <li>
+          <strong className="text-ink">{money(g.low)}</strong> if just the {hectares(g.insideHa)} inside is planted as its own
+          compartment.
+        </li>
+        <li>
+          <strong className="text-ink">{money(g.total)}</strong> if {several ? "each field" : "the whole field"} is one
+          compartment that touches the area.
+        </li>
+      </ul>
+      {several && <p className="mt-1">Worked out for each field you drew:</p>}
+    </div>
+  );
 }
 
 function Checklist({ items, icon }: { items: SourcedItem[]; icon: "check" | "dot" }) {
@@ -192,7 +233,7 @@ export function PaymentRow({
             {whatItPays ?? (
               <>
             <p>{rateText(group)}</p>
-            <p className="mt-1 text-muted">{howCalculated(group, eligibleHa)}</p>
+            <HowCalculated g={group} />
             {group.perBlock.length > 1 && (
               <ul className="mt-1 text-muted">
                 {group.perBlock.map((b) => (

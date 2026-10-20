@@ -55,6 +55,9 @@ export type NotOnThisLand = {
   requires_name?: string | null;
 };
 
+/** One line of the "How EWCO pays you" explainer, or the compartment rule. */
+export type HowPaidLine = { code: string; label: string | null; text: string; source_url: string };
+
 /** One checklist line, with the gov.uk section it comes from. */
 export type SourcedItem = { text: string; source_section: string; source_url: string };
 
@@ -113,6 +116,8 @@ export type ScreenResult = {
   not_on_this_land: NotOnThisLand[];
   /** Keyed by rate code, for every code paid, covered or held back in the result. */
   payment_details: Record<string, PaymentDetail>;
+  /** "How EWCO pays you" lines and the compartment rule (rules.messages, kind how_paid). */
+  how_paid: HowPaidLine[];
   site_flags: Flag[];
   next_steps: { code: string; title: string; body: string; source_url: string }[];
   limitations: string[];
@@ -216,10 +221,17 @@ export async function screenSite(
   try {
     const { data, error } = await supabase.rpc("screen_site", { site, public_access: publicAccess });
     if (error) return { error: friendlyError(error.message) };
-    // Older databases (before migration 20261017130000) don't return these:
-    // default them so the panel still works, just without the breakdowns.
+    // Older databases (before migrations 20261017130000 and 20261020100000)
+    // don't return these: default them so the panel still works without them.
     const result = data as ScreenResult;
-    return { result: { ...result, not_on_this_land: result.not_on_this_land ?? [], payment_details: result.payment_details ?? {} } };
+    return {
+      result: {
+        ...result,
+        not_on_this_land: result.not_on_this_land ?? [],
+        payment_details: result.payment_details ?? {},
+        how_paid: result.how_paid ?? [],
+      },
+    };
   } catch {
     return {
       error: {
